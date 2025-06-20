@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Salesforce Selenium Instruction Processor",
+  "version": "1.0",
+  "description": "Get user input and execute logic on Salesforce org.",
+  "permissions": ["tabs", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "host_permissions": ["<all_urls>"]
+}

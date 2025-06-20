@@ -1,0 +1,22 @@
+<!--
+The actual HTML shown in the popup when clicking the extension icon.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Salesforce Extension</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; width: 300px; }
+    textarea { width: 100%; height: 60px; }
+    button { margin-top: 10px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h3>Enter Instruction</h3>
+  <textarea id="userInput" placeholder="Type instruction..."></textarea>
+  <button id="processBtn">Process</button>
+  <div id="output" style="margin-top: 10px;"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
