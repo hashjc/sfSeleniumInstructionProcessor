@@ -3,7 +3,25 @@ console.log('Salesforce automation content script loaded');
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log("Listerner in contentjs > ", request);
     if (request.action === 'executeAutomation') {
+        //Code for multi object action plan
+        const actionPlanForMultiObjects = request?.actionPlan ?? [];
+        actionPlanForMultiObjects.forEach((ap) => {
+            executeAutomationSteps(ap)
+                .then((result) => {
+
+                })
+                .catch((error) => {
+
+                })
+                .finally(() => {
+
+                });
+        });
+
+        /*
+        //Code for single object action plan
         executeAutomationSteps(request.actionPlan)
             .then(result => {
                 //sendResponse({ success: true, result: result });
@@ -17,6 +35,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.log("finally ");
                 autoFillRecordForm();
             });
+        */
         return true; // Keep message channel open for async response
     }
 });
@@ -84,7 +103,9 @@ async function executeStep(step) {
         case 'sleep':
             await sleep(details.ms || 1000);
             break;
-
+        case 'autoFill':
+            await autoFillRecordForm();
+            break;
         default:
             console.warn(`Unknown action: ${action}`);
     }
