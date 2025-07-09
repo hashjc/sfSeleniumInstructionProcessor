@@ -44,6 +44,9 @@ document.getElementById("processBtn").addEventListener("click", async () => {
         }, 1000);
 
         // Execute the automation directly on current tab
+        geminiResponse.forEach(res => {
+            //const planExecutionResult = await executeOnCurrentTab(tab.id, res);
+        })
         await executeOnCurrentTab(tab.id, geminiResponse);
 
     } catch (ex) {
@@ -131,11 +134,14 @@ async function checkSalesforceLogin(tabId) {
 async function generateActionPlan(instruction, isSalesforceOrg, currentDomain, currentTabId) {
     console.log("Generating action plan for same-page execution");
 
+
+
+
     try {
         // Call Gemini API through background script
         const geminiResponse = await new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({
-                action: 'callGeminiAPI',
+                action: 'generateActionPlanForUserInstructions',
                 data: { instruction, isSalesforceOrg, currentDomain, currentTabId, samePageExecution: true }
             }, (response) => {
                 if (chrome.runtime.lastError) {
@@ -155,11 +161,12 @@ async function generateActionPlan(instruction, isSalesforceOrg, currentDomain, c
             throw new Error('Please log into Salesforce first, then try again.');
         }
 
-        console.log("Gemini response for same-page execution:", geminiResponse);
+        console.log("Gemini response for same-page execution => :", geminiResponse);
         return geminiResponse;
 
     } catch (ex) {
         let errorMsg = `Exception in generating action plan: ${ex?.message}`;
         throw new Error(errorMsg);
     }
+
 }
