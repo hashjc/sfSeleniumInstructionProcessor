@@ -1,27 +1,12 @@
 // content.js - Content script to execute automation on the current page
 console.log('Salesforce automation content script loaded');
 
+
+console.log('Salesforce automation content script loaded');
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("Listerner in contentjs > ", request);
     if (request.action === 'executeAutomation') {
-        //Code for multi object action plan
-        const actionPlanForMultiObjects = request?.actionPlan ?? [];
-        actionPlanForMultiObjects.forEach((ap) => {
-            executeAutomationSteps(ap)
-                .then((result) => {
-
-                })
-                .catch((error) => {
-
-                })
-                .finally(() => {
-
-                });
-        });
-
-        /*
-        //Code for single object action plan
         executeAutomationSteps(request.actionPlan)
             .then(result => {
                 //sendResponse({ success: true, result: result });
@@ -35,33 +20,65 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.log("finally ");
                 autoFillRecordForm();
             });
-        */
         return true; // Keep message channel open for async response
     }
 });
 
 
+function isOnRecordCreationForm() {
+  const url = window.location.href;
+  const isNew = url.includes('/lightning/o/') && url.includes('/new');
+  const hasFields = document.querySelectorAll('[data-target-selection-name*="sfdc:RecordField."]').length > 0;
+  return isNew && hasFields;
+}
+
 /**
  * Execute automation steps directly on the current page
  */
-async function executeAutomationSteps(actionPlan) {
-    console.log('Executing automation steps:', actionPlan);
+async function executeAutomationSteps(actionPlan, startIndex = 0) {
+  console.log('Starting automation from step', startIndex+1);
 
-    for (let i = 0; i < actionPlan.length; i++) {
-        const step = actionPlan[i];
-        console.log(`Executing step ${i + 1}:`, step);
+  for (let i = startIndex; i < actionPlan.length; i++) {
+    const step = actionPlan[i];
+    console.log(`▶️ Step ${i+1}:`, step.action, step.details);
 
-        try {
-            await executeStep(step);
-            // Small delay between steps
-            await sleep(1000);
-        } catch (error) {
-            console.error(`Error in step ${i + 1}:`, error);
-            throw new Error(`Step ${i + 1} failed: ${error.message}`);
-        }
+    // Persist state if you still want crash-recovery
+    localStorage.setItem('sf_automation_state', JSON.stringify({ actionPlan, currentIndex: i }));
+
+    // 1) perform the step
+    await executeStep(step);
+
+    // 2) autofill right after opening a New form
+    if ((step.action === 'app_launcher' || step.action === 'navigate') && isOnRecordCreationForm()) {
+      await sleep(1500);
+      await autoFillRecordForm();
+      showToast('Autofill complete, please review and click Save…', 3000);
     }
 
-    return 'Automation completed successfully';
+    // 3) toast for non-manual steps
+    if (step.action !== 'waitForUserSave') {
+      showToast(`Step ${i+1}: ${step.action} done`, 1500);
+    }
+
+    // 4) handle the manual-save pause
+    if (step.action === 'waitForUserSave') {
+        await autoFillRecordForm();
+      // show instruction
+      showToast(step.details.message, 3000);
+      // WAIT for the user to click Save (in any form context)
+      await waitForUserToSave();
+      // notify before moving on
+      showToast(`Step ${i+1} complete! Moving to next…`, 2000);
+      // continue the loop immediately—no return
+    }
+
+    // small buffer
+    await sleep(800);
+  }
+
+  // Cleanup & final toast
+  localStorage.removeItem('sf_automation_state');
+  showToast('All steps complete 🎉', 3000);
 }
 
 /**
@@ -103,12 +120,92 @@ async function executeStep(step) {
         case 'sleep':
             await sleep(details.ms || 1000);
             break;
-        case 'autoFill':
-            await autoFillRecordForm();
+        
+        case 'waitForUserSave':
+            alert(details.message || 'Please click Save, then click OK here to continue.');
             break;
+
         default:
             console.warn(`Unknown action: ${action}`);
     }
+}
+
+
+/**
+ * Wait until the user clicks a “Save” button on the form,
+ * then resolve so the automation can resume.
+ */
+async function waitForUserToSave() {
+  return new Promise(resolve => {
+    let done = false;
+    const saveSelectors = [
+      'button[name="SaveEdit"]',
+      'button[title="Save"]',
+      '.slds-button_brand',
+      'lightning-button[data-element-id="saveButton"]'
+    ];
+
+    showToast('Click Save to continue…', 3000);
+
+    function attach() {
+      saveSelectors.forEach(sel => {
+        document.querySelectorAll(sel).forEach(btn => {
+          if (!btn.dataset.sfSaveListener) {
+            btn.dataset.sfSaveListener = 'true';
+            btn.addEventListener('click', () => {
+              if (done) return;
+              done = true;
+              showToast('Save detected!', 2000);
+              setTimeout(resolve, 1000);
+            });
+          }
+        });
+      });
+    }
+
+    attach();
+    const checker = setInterval(attach, 1000);
+
+    // Fallback in 2 minutes
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        clearInterval(checker);
+        showToast('No Save detected—continuing.', 2000);
+        resolve();
+      }
+    }, 120000);
+  });
+}
+
+/**
+ * Minimal toast utility (if you don't already have it).
+ * Call showToast(msg, durationMs) to display a message.
+ */
+function showToast(msg, duration = 2000) {
+  let t = document.getElementById('sf-autobot-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'sf-autobot-toast';
+    Object.assign(t.style, {
+      position: 'fixed',
+      bottom: '20px',
+      right: '20px',
+      padding: '8px 12px',
+      background: 'rgba(0,0,0,0.75)',
+      color: '#fff',
+      borderRadius: '4px',
+      fontFamily: 'sans-serif',
+      fontSize: '13px',
+      zIndex: 99999,
+      transition: 'opacity 0.3s'
+    });
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._hideTimeout);
+  t._hideTimeout = setTimeout(() => t.style.opacity = '0', duration);
 }
 
 /**
@@ -1130,4 +1227,3 @@ function captureFieldValuesFromUi() {
     });
     return data;
 }
-
