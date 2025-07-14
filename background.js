@@ -1,7 +1,7 @@
 // background.js - Service Worker for handling API calls (same-page execution)
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'generateActionPlanForUserInstructions') {
+  if (request.action === 'callGeminiAPI') {
     handleGeminiAPICall(request.data)
       .then(response => sendResponse({ success: true, data: response }))
       .catch(error => {
@@ -22,63 +22,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleGeminiAPICall(requestData) {
   const { instruction, isSalesforceOrg, currentDomain, currentTabId, samePageExecution } = requestData;
 
-  const API_KEY = "AIzaSyDJmSlrT7qztmzQ_Lov6tL25iWdlyIzHbI";
+  const API_KEY = "AIzaSyAWpSq4nTD377qg4J4n7bxWiTifvz43IDU";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
   const geminiPrompt = `
 You are a Salesforce Lightning automation expert. Generate JavaScript DOM automation steps to execute the following task DIRECTLY on the current Salesforce page (no new tabs or navigation).
 
-There are going to be multiple ordered user instructions: Example "Step 1: Create Account. Step 2: Create Contact".
-Here is the actual user provided instructions: "${instruction}"
-
-For each user provided instruction, generate a JSON array of steps where each step has:
-- "action": one of ["click", "type", "selectByValue", "waitFor", "waitForVisible", "app_launcher", "sleep"]
-- "details": object with required fields:
-  - "selector": CSS selector or XPath (prefer CSS)
-  - "text": for typing
-  - "value": for selection
-  - "timeout": for waits (default 10000ms)
-  - "ms": for sleep duration
-  - "objectName": for app_launcher (e.g., "Accounts", "Contacts", "Opportunities")
-  - Do not include any comment in the JSON object.
-
-Key requirements:
-1. Work on CURRENT page - no navigation/new tabs
-2. Use modern Lightning UI selectors
-3. Include proper waits for elements to load
-4. For creating records: use app_launcher first, then form filling steps
-
-Instructions:
-1. You need to generate an action plan to complete the user provided instructions.
-2. The output must be a JSON array. It is going to be an array of array where each element in the array is an "action plan".
-3. An action plan consists of a set of steps that needs to be performed to complete a step in user provided instruction.
-Below is an example of action plan for - "Create account":
-[
-  { "action": "app_launcher", "details": { "objectName": "Accounts" } },
-  { "action": "waitFor", "details": { "selector": "input[name='Name']", "timeout": 5000 } },
-  { "action": "type", "details": { "selector": "input[name='Name']", "text": "New Account Name" } },
-  { "action": "autofill", "details": { } },
-  { "action": "click", "details": { "selector": "button[name='SaveEdit']" } },
-
-]
-4. After opening the record for, i.e. in the autofill step the record fields are populated.
-5. Ensure to not omit the autofill step from action plan for any object.
-
-
-6. We will have one action plan for each object.
-7. If there are 'N' user instructions, then there will be N items in array.
-8. Assume all object names are valid.
-9. Generate ONLY the valid JSON array, no additional text or comments.
-10. Ensure the JSON output STRICTLY does not contain ANY comments.
-
-  `
-
-/*
-//Single Object Prompt
-  const geminiPrompt = `
-You are a Salesforce Lightning automation expert. Generate JavaScript DOM automation steps to execute the following task DIRECTLY on the current Salesforce page (no new tabs or navigation).
-
 User instruction: "${instruction}"
+
+IMPORTANT: If the instruction contains multiple steps (e.g., "Step1.Create Account Step2.Create Contact"), handle each step sequentially in the same JSON array.
 
 Generate a JSON array of steps where each step has:
 - "action": one of ["click", "type", "selectByValue", "waitFor", "waitForVisible", "app_launcher", "sleep"]
@@ -91,23 +43,46 @@ Generate a JSON array of steps where each step has:
   - "objectName": for app_launcher (e.g., "Accounts", "Contacts", "Opportunities")
   - Do not include any comment in the JSON object.
 
+RULES FOR MULTI-STEP CREATION:
+ • If the input contains "Step1", "Step2", etc., generate for each step:
+   1. { "action":"app_launcher",    "details":{ "objectName":"<ObjectAPIName>" } }
+   2. { "action":"sleep",           "details":{ "ms":2000 } }
+   3. { "action":"waitForUserSave", "details":{ "message":"Please click Save to complete {step description}, then click Continue." } }
+   4. { "action":"sleep",           "details":{ "ms":2000 } }
+
+ • Do not click Save automatically—always use "waitForUserSave".
+ • Return only the JSON array of steps, with no additional text.
+
 Key requirements:
 1. Work on CURRENT page - no navigation/new tabs
 2. Use modern Lightning UI selectors
 3. Include proper waits for elements to load
 4. For creating records: use app_launcher first, then form filling steps
+5. For multiple objects: complete one object creation before starting the next
+6. Add sleep between different object creations for stability
 
-Example for "Create a new account":
+Example for "Step1.Create Account Step2.Create Contact":
 [
-  { "action": "app_launcher", "details": { "objectName": "Accounts" } },
-  { "action": "waitFor", "details": { "selector": "input[name='Name']", "timeout": 5000 } },
-  { "action": "type", "details": { "selector": "input[name='Name']", "text": "New Account Name" } },
-  { "action": "click", "details": { "selector": "button[name='SaveEdit']" } }
+ { "action":"app_launcher",    "details":{ "objectName":"Accounts" } },
+  { "action":"sleep",           "details":{ "ms":2000 } },
+  { "action":"waitForUserSave", "details":{ "message":"Please click Save to create the Account, then click Continue." } },
+  { "action":"sleep",           "details":{ "ms":2000 } },
+  { "action":"app_launcher",    "details":{ "objectName":"Contacts" } },
+  { "action":"sleep",           "details":{ "ms":2000 } },
+  { "action":"waitForUserSave", "details":{ "message":"Please click Save to create the Contact, then click Continue." } },
+  { "action":"sleep",           "details":{ "ms":2000 } }
 ]
 
+Pattern recognition:
+- If instruction contains "Step1", "Step2", etc., treat each as separate object creation
+- If instruction contains "Create [Object1]" and "Create [Object2]", handle sequentially
+- Always add proper waits and sleep between different object creations
+- Use toast message wait to confirm record creation before proceeding
+
 Generate ONLY the JSON array, no additional text:
-`;
-*/
+`; 
+
+
 
   const requestBody = {
     contents: [
@@ -124,12 +99,12 @@ Generate ONLY the JSON array, no additional text:
       temperature: 0.1,
       topK: 1,
       topP: 1,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096, // Increased for multiple objects
     }
   };
 
   try {
-    console.log('Making Gemini API request for same-page execution...');
+    console.log('Making Gemini API request for multi-object execution...');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -176,11 +151,17 @@ Generate ONLY the JSON array, no additional text:
 
     try {
       const actionPlan = JSON.parse(jsonString);
-      console.log('Generated action plan for same-page execution:', actionPlan);
+      console.log('Generated action plan for multi-object execution:', actionPlan);
 
       // Validate action plan
       if (!Array.isArray(actionPlan)) {
         throw new Error('Action plan must be an array');
+      }
+
+      // Additional validation for multi-object scenarios
+      const appLauncherActions = actionPlan.filter(step => step.action === 'app_launcher');
+      if (appLauncherActions.length > 1) {
+        console.log(`Multi-object creation detected: ${appLauncherActions.length} objects`);
       }
 
       return actionPlan;
@@ -197,3 +178,30 @@ Generate ONLY the JSON array, no additional text:
     throw new Error(`API call failed: ${error.message}`);
   }
 }
+
+// Helper function to parse multi-step instructions
+function parseMultiStepInstruction(instruction) {
+  // Parse instructions like "Step1.Create Account Step2.Create Contact"
+  const stepPattern = /Step(\d+)\.(.+?)(?=Step\d+\.|$)/g;
+  const steps = [];
+  let match;
+  
+  while ((match = stepPattern.exec(instruction)) !== null) {
+    steps.push({
+      stepNumber: parseInt(match[1]),
+      action: match[2].trim()
+    });
+  }
+  
+  return steps.length > 0 ? steps : [{ stepNumber: 1, action: instruction }];
+}
+
+// Usage example:
+// const instruction = "Step1.Create Account Step2.Create Contact Step3.Create Opportunity";
+// const steps = parseMultiStepInstruction(instruction);
+// console.log(steps);
+// Output: [
+//   { stepNumber: 1, action: "Create Account" },
+//   { stepNumber: 2, action: "Create Contact" },
+//   { stepNumber: 3, action: "Create Opportunity" }
+// ]
