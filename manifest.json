@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Salesforce Automation 3",
+  "name": "Salesforce Automation",
   "version": "1.0",
   "description": "Execute Salesforce automation on the current page",
   "permissions": [
-    "tabs",
-    "activeTab",
+    "tabs", 
+    "activeTab", 
     "scripting",
     "storage"
   ],
@@ -15,16 +15,16 @@
     "https://*.force.com/*",
     "https://login.salesforce.com/*"
   ],
-
+  
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Salesforce Automation 3"
+    "default_title": "Salesforce Automation"
   },
-
+  
   "background": {
     "service_worker": "background.js"
   },
-
+  
   "content_scripts": [
     {
       "matches": [
@@ -36,7 +36,17 @@
       "run_at": "document_idle"
     }
   ],
-
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js"],
+      "matches": [
+        "https://*.salesforce.com/*",
+        "https://*.force.com/*",
+        "https://*.lightning.force.com/*"
+      ]
+    }
+  ],
+  
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com"
   }
