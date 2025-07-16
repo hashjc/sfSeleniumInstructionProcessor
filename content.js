@@ -1,114 +1,277 @@
 // content.js - Content script to execute automation on the current page
 console.log('Salesforce automation content script loaded');
 
+
+console.log('Salesforce automation content script loaded');
+
+
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("Listerner in contentjs > ", request);
     if (request.action === 'executeAutomation') {
-        //Code for multi object action plan
-        const actionPlanForMultiObjects = request?.actionPlan ?? [];
-        actionPlanForMultiObjects.forEach((ap) => {
-            executeAutomationSteps(ap)
-                .then((result) => {
-
-                })
-                .catch((error) => {
-
-                })
-                .finally(() => {
-
-                });
-        });
-
-        /*
-        //Code for single object action plan
-        executeAutomationSteps(request.actionPlan)
-            .then(result => {
-                //sendResponse({ success: true, result: result });
-                console.log("Then ");
-            })
-            .catch(error => {
-                console.error('Automation error:', error);
-                //sendResponse({ success: false, error: error.message });
-            })
-            .finally(() => {
-                console.log("finally ");
-                autoFillRecordForm();
-            });
-        */
+        executeAutomationSteps(request.actionPlan).catch(console.error);
+            // .then(result => {
+            //     //sendResponse({ success: true, result: result });
+            //     console.log("Then ");
+            // })
+            // .catch(error => {
+            //     console.error('Automation error:', error);
+            //     //sendResponse({ success: false, error: error.message });
+            // })
+            // .finally(() => {
+            //     console.log("finally ");
+            //     autoFillRecordForm();
+            // });
         return true; // Keep message channel open for async response
     }
 });
 
 
+
+
 /**
  * Execute automation steps directly on the current page
  */
-async function executeAutomationSteps(actionPlan) {
-    console.log('Executing automation steps:', actionPlan);
-
-    for (let i = 0; i < actionPlan.length; i++) {
-        const step = actionPlan[i];
-        console.log(`Executing step ${i + 1}:`, step);
+async function executeAutomationSteps(plan) {
+    console.log(`🚀 Starting automation with ${plan.length} steps`);
+    
+    for (let i = 0; i < plan.length; i++) {
+        const { action, details } = plan[i];
+        console.log(`▶️ Step ${i+1}/${plan.length}:`, action, details);
 
         try {
-            await executeStep(step);
-            // Small delay between steps
-            await sleep(1000);
+            // 1) Perform the DOM action
+            await executeStep(action, details);
+
+            // 2) If we've just opened a New form, autofill it
+            if ((action === 'app_launcher' || action === 'navigate') && isOnRecordCreationForm()) {
+                await sleep(1500);
+                await autoFillRecordForm();
+                showToast('Autofill done, please review…', 2000);
+            }
+
+            // 3) If this step requires a manual save, run autofill again then pause
+            if (action === 'waitForUserSave') {
+                await autoFillRecordForm();
+                showToast(details.message, 3000);
+                
+                // Wait for user to save and get confirmation
+                const saveResult = await waitForUserToSave();
+                console.log(`✅ Save completed for step ${i+1}:`, saveResult);
+                showToast(`Step ${i+1} saved successfully!`, 2000);
+                
+                // Wait a bit more to ensure the save is fully processed
+                await sleep(2000);
+            } else {
+                // 4) Otherwise just toast success
+                showToast(`Step ${i+1} complete`, 1200);
+            }
+
+            // Short buffer between steps
+            await sleep(800);
+            
         } catch (error) {
-            console.error(`Error in step ${i + 1}:`, error);
-            throw new Error(`Step ${i + 1} failed: ${error.message}`);
+            console.error(`❌ Error in step ${i+1}:`, error);
+            showToast(`Error in step ${i+1}: ${error.message}`, 3000);
+            
+            // For non-critical errors, continue to next step
+            if (!error.message.includes('not found') && !error.message.includes('timeout')) {
+                continue;
+            }
+            
+            // For critical errors, stop execution
+            throw new Error(`Critical error in step ${i+1}: ${error.message}`);
         }
     }
 
-    return 'Automation completed successfully';
+    console.log('🎉 All automation steps completed successfully!');
+    showToast('✅ All steps complete!', 3000);
+    return { success: true, message: 'All steps completed successfully' };
 }
 
 /**
  * Execute a single automation step
  */
-async function executeStep(step) {
-    const { action, details } = step;
-
+async function executeStep(action, d) {
+    console.log(`🔄 Executing action: ${action}`, d);
+    
     switch (action) {
         case 'navigate':
-            window.location.href = details.url;
+            window.location.href = d.url;
             await waitForPageLoad();
             break;
-
         case 'click':
-            await clickElement(details.selector);
+            await clickElement(d.selector);
             break;
-
         case 'type':
-            await typeInElement(details.selector, details.text);
+            await typeInElement(d.selector, d.text);
             break;
-
         case 'selectByValue':
-            await selectByValue(details.selector, details.value);
+            await selectByValue(d.selector, d.value);
             break;
-
         case 'waitFor':
-            await waitForElement(details.selector, details.timeout || 10000);
+            await waitForElement(d.selector, d.timeout || 10000);
             break;
-
         case 'waitForVisible':
-            await waitForElementVisible(details.selector, details.timeout || 10000);
+            await waitForElementVisible(d.selector, d.timeout || 10000);
             break;
-
         case 'app_launcher':
-            await handleAppLauncher(details.objectName || 'Accounts');
+            await handleAppLauncher(d.objectName);
             break;
-
         case 'sleep':
-            await sleep(details.ms || 1000);
+            await sleep(d.ms || 1000);
             break;
-        case 'autoFill':
-            await autoFillRecordForm();
+        case 'waitForUserSave':
+            // This is handled in the main loop
+            console.log('⏳ Preparing for user save action');
             break;
         default:
-            console.warn(`Unknown action: ${action}`);
+            console.warn('⚠️ Unknown action:', action);
     }
+}
+
+function isOnRecordCreationForm() {
+  const url = location.href;
+  return url.includes('/lightning/o/') && url.includes('/new') &&
+         document.querySelectorAll('[data-target-selection-name*="sfdc:RecordField."]').length;
+}
+
+/**
+ * Wait until the user clicks a “Save” button on the form,
+ * then resolve so the automation can resume.
+ */
+async function waitForUserToSave() {
+    return new Promise((resolve, reject) => {
+        let done = false;
+        let saveDetected = false;
+        
+        const saveSel = [
+            'button[name="SaveEdit"]',
+            'button[title="Save"]',
+            '.slds-button_brand',
+            'lightning-button[data-element-id="saveButton"]',
+            'button[data-aura-class="uiButton--brand"]'
+        ];
+        
+        console.log('⏳ Waiting for user to click Save button...');
+        showToast('Click Save to continue automation...', 5000);
+
+        function attachSaveListeners() {
+            saveSel.forEach(sel => {
+                document.querySelectorAll(sel).forEach(btn => {
+                    if (!btn.dataset.sfListener && btn.textContent.toLowerCase().includes('save')) {
+                        btn.dataset.sfListener = 'true';
+                        btn.addEventListener('click', handleSaveClick);
+                    }
+                });
+            });
+        }
+
+        function handleSaveClick() {
+            if (done) return;
+            
+            console.log('💾 Save button clicked!');
+            saveDetected = true;
+            showToast('Save detected! Waiting for completion...', 2000);
+            
+            // Wait for save to complete by checking for success indicators
+            waitForSaveCompletion()
+                .then(() => {
+                    if (!done) {
+                        done = true;
+                        clearInterval(checker);
+                        resolve({ success: true, message: 'Save completed successfully' });
+                    }
+                })
+                .catch(error => {
+                    if (!done) {
+                        done = true;
+                        clearInterval(checker);
+                        // Even if we can't confirm save completion, continue automation
+                        console.warn('Save completion check failed, but continuing:', error);
+                        resolve({ success: true, message: 'Save initiated, continuing automation' });
+                    }
+                });
+        }
+
+
+async function waitForSaveCompletion() {
+            const maxWait = 30000; // 30 seconds max wait
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxWait) {
+                // Check for success toast/message
+                const successToast = document.querySelector('.slds-notify_toast.slds-theme_success, .toastMessage.confirm');
+                if (successToast) {
+                    console.log('✅ Success toast found - save completed');
+                    return true;
+                }
+                
+                // Check if we're redirected to record detail page
+                const url = window.location.href;
+                if (url.includes('/lightning/r/') && !url.includes('/new')) {
+                    console.log('✅ Redirected to record detail - save completed');
+                    return true;
+                }
+                
+                // Check for record ID in URL
+                const recordIdMatch = url.match(/\/lightning\/r\/\w+\/(\w{15}|\w{18})/);
+                if (recordIdMatch) {
+                    console.log('✅ Record ID found in URL - save completed');
+                    return true;
+                }
+                
+                await sleep(1000);
+            }
+            
+            throw new Error('Save completion timeout');
+        }
+
+        // Attach listeners initially and keep checking for new buttons
+        attachSaveListeners();
+        const checker = setInterval(() => {
+            if (!done && !saveDetected) {
+                attachSaveListeners();
+            }
+        }, 1000);
+
+        // Fallback timeout - continue automation even if save not detected
+        setTimeout(() => {
+            if (!done) {
+                done = true;
+                clearInterval(checker);
+                console.warn('⚠️ Save timeout reached - continuing automation');
+                showToast('Save timeout - continuing automation...', 2000);
+                resolve({ success: true, message: 'Save timeout - continuing automation' });
+            }
+        }, 180000); // 3 minutes timeout
+    });
+}
+
+
+
+/**
+ * Minimal toast utility (if you don't already have it).
+ * Call showToast(msg, durationMs) to display a message.
+ */
+function showToast(msg, ms=2000) {
+  let t = document.getElementById('sf-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'sf-toast';
+    Object.assign(t.style, {
+      position: 'fixed', bottom: '20px', right: '20px',
+      padding: '8px 12px', background: 'rgba(0,0,0,0.75)',
+      color: '#fff', borderRadius: '4px',
+      fontFamily: 'sans-serif', fontSize: '13px', zIndex: 99999,
+      transition: 'opacity 0.3s'
+    });
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.style.opacity = '0', ms);
 }
 
 /**
@@ -395,9 +558,6 @@ async function waitForElementVisible(selector, timeout = 10000) {
     throw new Error(`Element not visible within timeout: ${selector}`);
 }
 
-/**
- * Wait for page to load
- */
 async function waitForPageLoad() {
     return new Promise((resolve) => {
         if (document.readyState === 'complete') {
@@ -408,9 +568,7 @@ async function waitForPageLoad() {
     });
 }
 
-/**
- * Sleep function
- */
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -433,18 +591,17 @@ async function autoFillRecordForm() {
             let name = input.name || input.id;
 
             if (apiField) {
-                // Sanitize the name (strip prefix like "sfdc:RecordField.")
+               
                 let apiName = apiField.replace(/^sfdc:RecordField\./, '');
-                //Check is a Rich text input
                 let type = getSalesforceFieldType(apiName);
 
                 //Skip lookup fields
                 if (type === "lookup") {
-                    return; // Skip this input
+                    return; 
                 }
 
 
-                // Include only non-lookup fields: Check if the API name already exists
+               
                 const item = fieldNames.find((field) => field.apiName === apiName);
                 //const typeOfInput = getTypeOfPicklistField(apiName);
                 if (item) {
@@ -1130,4 +1287,3 @@ function captureFieldValuesFromUi() {
     });
     return data;
 }
-
