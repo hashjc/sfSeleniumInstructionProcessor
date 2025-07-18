@@ -1,87 +1,42 @@
-// background.js - Service Worker for handling API calls (same-page execution)
+// background.js - Enhanced Service Worker for handling API calls with multi-object creation
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'generateActionPlanForUserInstructions') {
+  if (request.action === 'callGeminiAPI') {
     handleGeminiAPICall(request.data)
-      .then(response => sendResponse({ success: true, data: response }))
+      .then((response) => {
+        console.log('response action plan -----',response);
+        sendResponse({ success: true, data: response });
+      })
       .catch(error => {
         console.error('Gemini API Error:', error);
         sendResponse({ success: false, error: error.message });
       });
-    return true; // Keep the message channel open for async response
-    }
-    if (request.type === "statusUpdate") {
-        console.log("[Background] Status update:", request.message);
-        latestStatus = request.message;
-    } else if (request.type === "getStatus") {
-        sendResponse({ message: latestStatus });
-        return true;
-    }
+    return true;
+  }
+  if (request.type === "statusUpdate") {
+    console.log("[Background] Status update:", request.message);
+    latestStatus = request.message;
+  } else if (request.type === "getStatus") {
+    sendResponse({ message: latestStatus });
+    return true;
+  }
 });
 
 async function handleGeminiAPICall(requestData) {
   const { instruction, isSalesforceOrg, currentDomain, currentTabId, samePageExecution } = requestData;
 
-  const API_KEY = "AIzaSyDJmSlrT7qztmzQ_Lov6tL25iWdlyIzHbI";
+  const API_KEY = "AIzaSyAWpSq4nTD377qg4J4n7bxWiTifvz43IDU";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
   const geminiPrompt = `
 You are a Salesforce Lightning automation expert. Generate JavaScript DOM automation steps to execute the following task DIRECTLY on the current Salesforce page (no new tabs or navigation).
 
-There are going to be multiple ordered user instructions: Example "Step 1: Create Account. Step 2: Create Contact".
-Here is the actual user provided instructions: "${instruction}"
-
-For each user provided instruction, generate a JSON array of steps where each step has:
-- "action": one of ["click", "type", "selectByValue", "waitFor", "waitForVisible", "app_launcher", "sleep"]
-- "details": object with required fields:
-  - "selector": CSS selector or XPath (prefer CSS)
-  - "text": for typing
-  - "value": for selection
-  - "timeout": for waits (default 10000ms)
-  - "ms": for sleep duration
-  - "objectName": for app_launcher (e.g., "Accounts", "Contacts", "Opportunities")
-  - Do not include any comment in the JSON object.
-
-Key requirements:
-1. Work on CURRENT page - no navigation/new tabs
-2. Use modern Lightning UI selectors
-3. Include proper waits for elements to load
-4. For creating records: use app_launcher first, then form filling steps
-
-Instructions:
-1. You need to generate an action plan to complete the user provided instructions.
-2. The output must be a JSON array. It is going to be an array of array where each element in the array is an "action plan".
-3. An action plan consists of a set of steps that needs to be performed to complete a step in user provided instruction.
-Below is an example of action plan for - "Create account":
-[
-  { "action": "app_launcher", "details": { "objectName": "Accounts" } },
-  { "action": "waitFor", "details": { "selector": "input[name='Name']", "timeout": 5000 } },
-  { "action": "type", "details": { "selector": "input[name='Name']", "text": "New Account Name" } },
-  { "action": "autofill", "details": { } },
-  { "action": "click", "details": { "selector": "button[name='SaveEdit']" } },
-
-]
-4. After opening the record for, i.e. in the autofill step the record fields are populated.
-5. Ensure to not omit the autofill step from action plan for any object.
-
-
-6. We will have one action plan for each object.
-7. If there are 'N' user instructions, then there will be N items in array.
-8. Assume all object names are valid.
-9. Generate ONLY the valid JSON array, no additional text or comments.
-10. Ensure the JSON output STRICTLY does not contain ANY comments.
-
-  `
-
-/*
-//Single Object Prompt
-  const geminiPrompt = `
-You are a Salesforce Lightning automation expert. Generate JavaScript DOM automation steps to execute the following task DIRECTLY on the current Salesforce page (no new tabs or navigation).
-
 User instruction: "${instruction}"
 
+IMPORTANT: If the instruction contains multiple steps that require record relationships (e.g., "Step1.Create Account Step2.Create Contact on that Account"), handle each step sequentially and pass record context between steps. Use the Related List Quick Links when possible instead of navigating to separate tabs.
+
 Generate a JSON array of steps where each step has:
-- "action": one of ["click", "type", "selectByValue", "waitFor", "waitForVisible", "app_launcher", "sleep"]
+- "action": one of ["click", "type", "selectByValue", "waitFor", "waitForVisible", "app_launcher", "sleep", "waitForUserSave", "captureRecordId", "navigateToRelatedList", "clickNewInRelatedList"]
 - "details": object with required fields:
   - "selector": CSS selector or XPath (prefer CSS)
   - "text": for typing
@@ -89,25 +44,69 @@ Generate a JSON array of steps where each step has:
   - "timeout": for waits (default 10000ms)
   - "ms": for sleep duration
   - "objectName": for app_launcher (e.g., "Accounts", "Contacts", "Opportunities")
-  - Do not include any comment in the JSON object.
+  - "recordVariable": for captureRecordId (e.g., "accountId")
+  - "relatedListName": for navigateToRelatedList (e.g., "Contacts")
+  - "parentRecordVariable": for creating related records
+  - "message": for waitForUserSave
+
+RULES FOR MULTI-STEP CREATION WITH RELATIONSHIPS:
+For instructions like "Step1.Create Account Step2.Create Contact on that Account":
+
+Step 1 (Create Parent Record):
+1. { "action":"app_launcher", "details":{ "objectName":"Accounts" } }
+2. { "action":"sleep", "details":{ "ms":2000 } }
+3. { "action":"waitForUserSave", "details":{ "message":"Please click Save to create the Account, then click Continue." } }
+4. { "action":"captureRecordId", "details":{ "recordVariable":"accountId" } }
+5. { "action":"sleep", "details":{ "ms":2000 } }
+
+Step 2 (Create Related Record using Quick Links):
+6. { "action":"navigateToRelatedList", "details":{ "relatedListName":"Contacts", "parentRecordVariable":"accountId" } }
+7. { "action":"sleep", "details":{ "ms":2000 } }
+8. { "action":"clickNewInRelatedList", "details":{ "relatedListName":"Contacts" } }
+9. { "action":"sleep", "details":{ "ms":2000 } }
+10. { "action":"waitForUserSave", "details":{ "message":"Please click Save to create the Contact, then click Continue." } }
+
+IMPORTANT: The navigateToRelatedList action will first try to use "Related List Quick Links" section on the Account page, which keeps the user on the same page and automatically establishes the relationship. This is more reliable than navigating to separate tabs.
+
+OBJECT RELATIONSHIP MAPPING:
+- Account → Contacts: relatedListName: "Contacts"
+- Account → Opportunities: relatedListName: "Opportunities"
+- Account → Cases: relatedListName: "Cases"
+- Contact → Opportunities: relatedListName: "Opportunities"
+- Opportunity → Quote: relatedListName: "Quotes"
 
 Key requirements:
 1. Work on CURRENT page - no navigation/new tabs
-2. Use modern Lightning UI selectors
-3. Include proper waits for elements to load
-4. For creating records: use app_launcher first, then form filling steps
+2. Use Related List Quick Links when possible for better UX
+3. Use modern Lightning UI selectors
+4. Include proper waits for elements to load
+5. Capture record IDs after creation for relationship building
+6. Handle lookup field population automatically when creating related records
+7. The Account lookup field should be automatically populated with the parent Account name
 
-Example for "Create a new account":
+Example for "Step1.Create Account Step2.Create Contact on that Account":
 [
-  { "action": "app_launcher", "details": { "objectName": "Accounts" } },
-  { "action": "waitFor", "details": { "selector": "input[name='Name']", "timeout": 5000 } },
-  { "action": "type", "details": { "selector": "input[name='Name']", "text": "New Account Name" } },
-  { "action": "click", "details": { "selector": "button[name='SaveEdit']" } }
+  { "action":"app_launcher", "details":{ "objectName":"Accounts" } },
+  { "action":"sleep", "details":{ "ms":2000 } },
+  { "action":"waitForUserSave", "details":{ "message":"Please click Save to create the Account, then click Continue." } },
+  { "action":"captureRecordId", "details":{ "recordVariable":"accountId" } },
+  { "action":"sleep", "details":{ "ms":2000 } },
+  { "action":"navigateToRelatedList", "details":{ "relatedListName":"Contacts", "parentRecordVariable":"accountId" } },
+  { "action":"sleep", "details":{ "ms":2000 } },
+  { "action":"clickNewInRelatedList", "details":{ "relatedListName":"Contacts" } },
+  { "action":"sleep", "details":{ "ms":2000 } },
+  { "action":"waitForUserSave", "details":{ "message":"Please click Save to create the Contact, then click Continue." } }
 ]
 
+Pattern recognition:
+- If instruction mentions creating records "on" or "for" previous records, use related list approach
+- Always try Related List Quick Links first before tab navigation
+- Always capture record IDs when subsequent steps might need them
+- Use proper relationship navigation for child records
+- The system will automatically populate lookup fields with parent record names
+
 Generate ONLY the JSON array, no additional text:
-`;
-*/
+`; 
 
   const requestBody = {
     contents: [
@@ -124,12 +123,12 @@ Generate ONLY the JSON array, no additional text:
       temperature: 0.1,
       topK: 1,
       topP: 1,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
     }
   };
 
   try {
-    console.log('Making Gemini API request for same-page execution...');
+    console.log('Making Gemini API request for multi-object execution...');
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -176,7 +175,7 @@ Generate ONLY the JSON array, no additional text:
 
     try {
       const actionPlan = JSON.parse(jsonString);
-      console.log('Generated action plan for same-page execution:', actionPlan);
+      console.log('Generated action plan for multi-object execution:', actionPlan);
 
       // Validate action plan
       if (!Array.isArray(actionPlan)) {
