@@ -1,1133 +1,1329 @@
-// content.js - Content script to execute automation on the current page
-console.log('Salesforce automation content script loaded');
+// FIXED: Complete content.js with proper related list detection and field extraction
 
-// Listen for messages from popup
+console.log('FIXED: Complete Salesforce automation with proper related list detection');
+
+const recordContext = {};
+let isExecuting = false;
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("Listerner in contentjs > ", request);
-    if (request.action === 'executeAutomation') {
-        //Code for multi object action plan
-        const actionPlanForMultiObjects = request?.actionPlan ?? [];
-        actionPlanForMultiObjects.forEach((ap) => {
-            executeAutomationSteps(ap)
-                .then((result) => {
-
-                })
-                .catch((error) => {
-
-                })
-                .finally(() => {
-
-                });
+    if (request.action === 'executeAutomationSteps') {
+        executeAutomationSteps(request.steps, request.instruction).catch(console.error);
+        sendResponse({ success: true });
+        return true;
+    }
+    
+    if (request.action === 'getPageContext') {
+        sendResponse({
+            url: window.location.href,
+            title: document.title,
+            isLoggedIn: isUserLoggedIn(),
+            currentObject: getCurrentObjectType(),
+            recordContext: recordContext,
+            availableObjects: getAvailableObjects(),
+            currentFormFields: getCurrentFormFields()
         });
-
-        /*
-        //Code for single object action plan
-        executeAutomationSteps(request.actionPlan)
-            .then(result => {
-                //sendResponse({ success: true, result: result });
-                console.log("Then ");
-            })
-            .catch(error => {
-                console.error('Automation error:', error);
-                //sendResponse({ success: false, error: error.message });
-            })
-            .finally(() => {
-                console.log("finally ");
-                autoFillRecordForm();
-            });
-        */
-        return true; // Keep message channel open for async response
+        return true;
     }
 });
 
+/**
+ * FIXED: Execute automation steps
+ */
+async function executeAutomationSteps(steps, originalInstruction) {
+    console.log('🚀 FIXED: Executing automation steps:', steps.length, 'steps');
+    console.log('Original instruction:', originalInstruction);
+    
+    if (isExecuting) {
+        showToast('Automation already in progress...', 2000);
+        return;
+    }
+    
+    isExecuting = true;
+    
+    try {
+        showToast(`🚀 FIXED: Starting automation: ${steps.length} steps`);
+        
+        for (let i = 0; i < steps.length; i++) {
+            const step = steps[i];
+            console.log(`⚡ FIXED: Executing step ${i+1}/${steps.length}:`, step);
+            
+            showToast(`FIXED Step ${i+1}/${steps.length}: ${step.description || step.action}`, 2000);
+            
+            try {
+                await executeStepFixed(step);
+                await sleep(step.delay || 1000);
+            } catch (stepError) {
+                console.error(`❌ FIXED Step ${i+1} failed:`, stepError);
+                showToast(`❌ FIXED Step ${i+1} failed: ${stepError.message}`, 4000);
+                
+                // Continue with next step for non-critical errors
+                if (!stepError.message.includes('critical')) {
+                    continue;
+                }
+                break;
+            }
+        }
+        
+        showToast('✅ FIXED: Automation completed successfully!', 3000);
+        
+    } catch (error) {
+        console.error('❌ FIXED: Automation failed:', error);
+        showToast(`❌ FIXED: Automation failed: ${error.message}`, 3000);
+    } finally {
+        isExecuting = false;
+    }
+}
 
 /**
- * Execute automation steps directly on the current page
+ * FIXED: Execute individual steps
  */
-async function executeAutomationSteps(actionPlan) {
-    console.log('Executing automation steps:', actionPlan);
+async function executeStepFixed(step) {
+    console.log('🔥 FIXED: Executing step:', step.action);
+    
+    switch (step.action) {
+        case 'navigate_app_launcher':
+            console.log('🔥 FIXED: Navigating to App Launcher for:', step.objectName);
+            await navigateViaAppLauncherFixed(step.objectName);
+            break;
+            
+        case 'click':
+            console.log('🔥 FIXED: Clicking:', step.selector);
+            await safeClick(step.selector, step.description);
+            break;
+            
+        case 'type':
+            console.log('🔥 FIXED: Typing:', step.value);
+            await safeType(step.selector, step.value, step.description);
+            break;
+            
+        case 'select':
+            console.log('🔥 FIXED: Selecting:', step.value);
+            await safeSelect(step.selector, step.value, step.description);
+            break;
+            
+        case 'wait':
+            console.log('🔥 FIXED: Waiting:', step.duration);
+            await sleep(step.duration || 1000);
+            break;
+            
+        case 'wait_for_element':
+            console.log('🔥 FIXED: Waiting for element:', step.selector);
+            await waitForElement(step.selector, step.timeout || 10000);
+            break;
+            
+        case 'toast':
+            console.log('🔥 FIXED: Showing toast:', step.message);
+            showToast(step.message, step.duration || 2000);
+            break;
+            
+        case 'fill_form':
+            console.log('🔥 FIXED: Filling form with', step.fields?.length, 'fields');
+            await fillFormIntelligentlyFixed(step.fields);
+            break;
+            
+        case 'wait_for_save':
+            console.log('🔥 FIXED: Waiting for save with auto-save:', step.autoSave);
+            await waitForUserToSaveEnhanced(step.message, step.autoSave !== false);
+            break;
+            
+        case 'capture_record_id':
+            console.log('🔥 FIXED: Capturing record ID for:', step.variable);
+            await captureRecordIdFixed(step.variable);
+            break;
+            
+        case 'navigate_to_related_tab':
+            console.log('🔥 FIXED: Navigating to Related tab');
+            await navigateToRelatedTabFixed();
+            break;
+            
+        case 'click_related_list_new':
+            console.log('🔥 FIXED: Clicking New in related list:', step.relatedListName, 'for object:', step.targetObject);
+            await clickRelatedListNewFixed(step.relatedListName, step.targetObject, step.parentRecordVariable);
+            break;
+            
+        case 'fill_related_form':
+            console.log('🔥 FIXED: Filling related form for:', step.objectType);
+            await fillRelatedFormFixed(step.objectType, step.originalInstruction);
+            break;
+            
+        default:
+            console.warn('❌ FIXED: Unknown step action:', step.action);
+    }
+}
 
-    for (let i = 0; i < actionPlan.length; i++) {
-        const step = actionPlan[i];
-        console.log(`Executing step ${i + 1}:`, step);
-
+/**
+ * FIXED: Navigate to Related tab
+ */
+async function navigateToRelatedTabFixed() {
+    console.log('🔗 === FIXED RELATED TAB NAVIGATION ===');
+    
+    await sleep(2000);
+    
+    console.log('Current URL:', window.location.href);
+    
+    // Enhanced Related tab detection
+    const relatedTabSelectors = [
+        'a[data-label="Related"]',
+        'a[title="Related"]', 
+        'lightning-tab[title="Related"] a',
+        '.slds-tabs_default__item a[title="Related"]',
+        'lightning-tab-bar a[title="Related"]',
+        '.slds-tabs_default__nav a[data-label="Related"]',
+        '[role="tab"][title="Related"]'
+    ];
+    
+    let relatedTab = null;
+    
+    // Try standard selectors
+    for (const selector of relatedTabSelectors) {
         try {
-            await executeStep(step);
-            // Small delay between steps
-            await sleep(1000);
+            relatedTab = document.querySelector(selector);
+            if (relatedTab && isElementVisible(relatedTab)) {
+                console.log(`✅ FIXED: Found Related tab: ${selector}`);
+                break;
+            }
         } catch (error) {
-            console.error(`Error in step ${i + 1}:`, error);
-            throw new Error(`Step ${i + 1} failed: ${error.message}`);
+            continue;
+        }
+    }
+    
+    // Fallback: text-based search
+    if (!relatedTab) {
+        console.log('🔍 FIXED: Trying text-based Related tab search...');
+        const allTabs = document.querySelectorAll('a[role="tab"], lightning-tab a, .slds-tabs_default__item a');
+        
+        for (const tab of allTabs) {
+            const text = tab.textContent.trim().toLowerCase();
+            if (text === 'related' && isElementVisible(tab)) {
+                console.log('✅ FIXED: Found Related tab by text');
+                relatedTab = tab;
+                break;
+            }
+        }
+    }
+    
+    if (!relatedTab) {
+        console.log('⚠️ FIXED: Related tab not found - may already be active');
+        showToast('⚠️ FIXED: Related tab not found - continuing', 3000);
+        return;
+    }
+    
+    console.log('🖱️ FIXED: Actually clicking Related tab');
+    
+    try {
+        // Check if already active
+        const isActive = relatedTab.getAttribute('aria-selected') === 'true' ||
+                         relatedTab.classList.contains('slds-is-active') ||
+                         relatedTab.parentElement?.classList.contains('slds-is-active');
+        
+        if (isActive) {
+            console.log('✅ FIXED: Related tab already active');
+            showToast('✅ FIXED: Already on Related tab', 2000);
+            return;
+        }
+        
+        // Scroll and highlight
+        relatedTab.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(1000);
+        
+        // Visual highlight
+        const originalBorder = relatedTab.style.border;
+        relatedTab.style.border = '3px solid red';
+        await sleep(1000);
+        relatedTab.style.border = originalBorder;
+        
+        // CLICK IT
+        relatedTab.click();
+        console.log('✅ FIXED: Clicked Related tab');
+        showToast('✅ FIXED: Switched to Related tab', 2000);
+        
+        // Wait for tab switch
+        await sleep(3000);
+        
+    } catch (error) {
+        console.error('❌ FIXED: Error clicking Related tab:', error);
+        // Try alternative click
+        try {
+            relatedTab.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await sleep(3000);
+        } catch (altError) {
+            console.error('❌ FIXED: Alternative click failed:', altError);
+        }
+    }
+}
+
+/**
+ * FIXED: Click New button in specific related list with PRECISE targeting
+ */
+async function clickRelatedListNewFixed(relatedListName, targetObject, parentRecordVariable) {
+    console.log(`🆕 === FIXED RELATED LIST NEW BUTTON CLICKING ===`);
+    console.log(`FIXED: Target List: ${relatedListName}`);
+    console.log(`FIXED: Target Object: ${targetObject}`);
+    console.log(`FIXED: Parent Variable: ${parentRecordVariable}`);
+    
+    await sleep(4000);
+    
+    console.log('🔍 FIXED: Current page state:');
+    console.log('URL:', window.location.href);
+    await debugRelatedListsOnPageFixed();
+    
+    // FIXED: Multiple precise strategies
+    const strategies = [
+        {
+            name: "FIXED: Exact Related List Section Match",
+            method: () => findExactRelatedListSectionFixed(relatedListName, targetObject)
+        },
+        {
+            name: "FIXED: Header-Based Section Detection",
+            method: () => findByHeaderTextFixed(relatedListName, targetObject)
+        },
+        {
+            name: "FIXED: Quick Links Precise Match",
+            method: () => findInQuickLinksFixed(relatedListName, targetObject)
+        },
+        {
+            name: "FIXED: Card Content Analysis",
+            method: () => findByCardContentFixed(relatedListName, targetObject)
+        },
+        {
+            name: "FIXED: Fallback New Button",
+            method: () => tryAnyNewButtonFixed(targetObject)
+        }
+    ];
+    
+    // Try each strategy
+    for (let i = 0; i < strategies.length; i++) {
+        const strategy = strategies[i];
+        console.log(`🔧 FIXED Strategy ${i + 1}: ${strategy.name}`);
+        
+        try {
+            const success = await strategy.method();
+            if (success) {
+                console.log(`✅ FIXED Strategy ${i + 1} successful for ${targetObject}!`);
+                showToast(`✅ FIXED: ${targetObject} New button found`, 3000);
+                return true;
+            }
+        } catch (error) {
+            console.warn(`FIXED Strategy ${i + 1} failed:`, error);
+        }
+    }
+    
+    console.error(`❌ FIXED: All strategies failed for ${targetObject}`);
+    showToast(`⚠️ FIXED: ${targetObject} New button not found - please click manually`, 5000);
+    return false;
+}
+
+/**
+ * FIXED: Find exact related list section with precise matching
+ */
+async function findExactRelatedListSectionFixed(relatedListName, targetObject) {
+    console.log(`🔍 FIXED: Exact section search for ${targetObject} in ${relatedListName}`);
+
+    const cardSelectors = [
+        '.slds-card',
+        'article.slds-card',
+        '[data-aura-class*="relatedList"]',
+        '.forceRelatedListSingleContainer',
+        '.related-list-container',
+        '[data-component-id*="relatedList"]'
+    ];
+
+    const allCards = document.querySelectorAll(cardSelectors.join(', '));
+    console.log(`FIXED: Found ${allCards.length} potential cards`);
+
+    for (const card of allCards) {
+        const header = card.querySelector('.slds-card__header, .slds-card__header-title, h2, h3, h4');
+        if (!header) continue;
+
+        const headerText = header.textContent.trim();
+
+        if (headerText.startsWith(relatedListName)) {
+            console.log(`✅ FIXED: Matched card header "${headerText}" with related list "${relatedListName}"`);
+
+            const newButton = card.querySelector('button, a[title="New"]');
+            if (newButton) {
+                console.log(`✅ FIXED: Clicking "New" button inside correct card for "${relatedListName}"`);
+                newButton.click();
+                return true;
+            }
         }
     }
 
-    return 'Automation completed successfully';
+    console.log(`❌ FIXED: No exact section found for "${relatedListName}"`);
+    return false;
+}
+
+
+/**
+ * FIXED: Generate precise search terms with confidence scores
+ */
+function generatePreciseSearchTerms(targetObject, relatedListName) {
+    const terms = [];
+    const obj = targetObject.toLowerCase();
+    const list = relatedListName.toLowerCase();
+    
+    // FIXED: High confidence terms (exact matches)
+    terms.push({ text: `${list} (`, confidence: 10 }); // "contacts ("
+    terms.push({ text: `${obj} (`, confidence: 10 });  // "contact ("
+    
+    // FIXED: Medium confidence terms
+    terms.push({ text: list, confidence: 8 });         // "contacts"
+    terms.push({ text: obj, confidence: 8 });          // "contact"
+    
+    // FIXED: Lower confidence terms (partial matches)
+    if (list.endsWith('s')) {
+        const singular = list.slice(0, -1);
+        terms.push({ text: singular, confidence: 6 }); // "contact" from "contacts"
+    }
+    
+    // FIXED: Filter out generic terms that might cause false matches
+    return terms.filter(term => 
+        term.text.length > 3 && 
+        !['entitlement', 'entitlements', 'attachment', 'attachments'].includes(term.text)
+    );
 }
 
 /**
- * Execute a single automation step
+ * FIXED: Find by header text with precise matching
  */
-async function executeStep(step) {
-    const { action, details } = step;
+async function findByHeaderTextFixed(relatedListName, targetObject) {
+    console.log(`🔍 FIXED: Header-based search for ${targetObject}`);
 
-    switch (action) {
-        case 'navigate':
-            window.location.href = details.url;
-            await waitForPageLoad();
-            break;
+    const headerSelectors = [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        '.slds-card__header-title',
+        '.slds-text-heading_small',
+        '.slds-text-heading_medium',
+        '.slds-page-header__title',
+        '[data-aura-class*="header"]'
+    ];
 
-        case 'click':
-            await clickElement(details.selector);
-            break;
+    for (const selector of headerSelectors) {
+        const headers = document.querySelectorAll(selector);
 
-        case 'type':
-            await typeInElement(details.selector, details.text);
-            break;
+        for (const header of headers) {
+            const headerText = header.textContent.trim();
 
-        case 'selectByValue':
-            await selectByValue(details.selector, details.value);
-            break;
+            if (headerText.startsWith(relatedListName)) {
+                console.log(`✅ FIXED: Found header matching "${relatedListName}"`);
 
-        case 'waitFor':
-            await waitForElement(details.selector, details.timeout || 10000);
-            break;
+                const section = header.closest('.slds-card') || 
+                                header.closest('article') ||
+                                header.closest('[data-aura-class*="relatedList"]');
 
-        case 'waitForVisible':
-            await waitForElementVisible(details.selector, details.timeout || 10000);
-            break;
-
-        case 'app_launcher':
-            await handleAppLauncher(details.objectName || 'Accounts');
-            break;
-
-        case 'sleep':
-            await sleep(details.ms || 1000);
-            break;
-        case 'autoFill':
-            await autoFillRecordForm();
-            break;
-        default:
-            console.warn(`Unknown action: ${action}`);
+                if (section) {
+                    const newButton = section.querySelector('button, a[title="New"]');
+                    if (newButton) {
+                        console.log(`✅ FIXED: Clicking "New" button in section "${relatedListName}"`);
+                        newButton.click();
+                        return true;
+                    }
+                }
+            }
+        }
     }
+
+    console.log(`❌ FIXED: No header match found for ${relatedListName}`);
+    return false;
 }
 
 /**
- * Click an element using CSS selector or XPath
+ * FIXED: Find New button in specific card with validation
  */
-async function clickElement(selector) {
-    const element = await findElement(selector);
-    if (!element) {
-        throw new Error(`Element not found: ${selector}`);
+async function findNewButtonInCardFixed(card, targetObject) {
+    console.log(`🔍 FIXED: Searching for New button in card for ${targetObject}`);
+    
+    // FIXED: Comprehensive New button selectors
+    const newButtonSelectors = [
+        'button[title="New"]',
+        'a[title="New"]',
+        'lightning-button[title="New"]',
+        '.slds-button[title="New"]',
+        'button[aria-label*="New"]',
+        'a[aria-label*="New"]'
+    ];
+    
+    for (const selector of newButtonSelectors) {
+        const newButtons = card.querySelectorAll(selector);
+        
+        for (const button of newButtons) {
+            if (isElementVisible(button)) {
+                console.log(`✅ FIXED: Found visible New button for ${targetObject}`);
+                
+                // FIXED: Double-check this is the right card by checking nearby text
+                const nearbyText = card.textContent.toLowerCase();
+                const searchTerms = generatePreciseSearchTerms(targetObject, targetObject + 's');
+                
+                let hasHighConfidenceMatch = false;
+                for (const term of searchTerms) {
+                    if (term.confidence >= 8 && nearbyText.includes(term.text)) {
+                        hasHighConfidenceMatch = true;
+                        break;
+                    }
+                }
+                
+                if (hasHighConfidenceMatch) {
+                    console.log(`✅ FIXED: High confidence - clicking New button for ${targetObject}`);
+                    await clickButtonRobustly(button, `FIXED ${targetObject} New`);
+                    return true;
+                } else {
+                    console.log(`⚠️ FIXED: Low confidence match - skipping this New button`);
+                }
+            }
+        }
     }
+    
+    // FIXED: Text-based New button search
+    const allElements = card.querySelectorAll('button, a, span, div');
+    for (const element of allElements) {
+        const elementText = element.textContent.trim().toLowerCase();
+        if (elementText === 'new' && isElementVisible(element)) {
+            console.log(`✅ FIXED: Found New button by text for ${targetObject}`);
+            await clickButtonRobustly(element, `FIXED ${targetObject} New by text`);
+            return true;
+        }
+    }
+    
+    console.log(`❌ FIXED: No New button found in card for ${targetObject}`);
+    return false;
+}
 
-    // Scroll element into view
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    await sleep(500);
+/**
+ * FIXED: Find in Quick Links with precise matching
+ */
+async function findInQuickLinksFixed(relatedListName, targetObject) {
+    console.log(`🔍 FIXED: Quick Links search for ${targetObject}`);
+    
+    const quickLinksSelectors = [
+        '.relatedListQuickLinks',
+        '[data-aura-class*="relatedListQuickLinks"]',
+        '.slds-card__body .slds-grid'
+    ];
+    
+    let quickLinksSection = null;
+    for (const selector of quickLinksSelectors) {
+        quickLinksSection = document.querySelector(selector);
+        if (quickLinksSection) {
+            console.log(`✅ FIXED: Found Quick Links: ${selector}`);
+            break;
+        }
+    }
+    
+    if (!quickLinksSection) {
+        console.log('❌ FIXED: No Quick Links section found');
+        return false;
+    }
+    
+    const allLinks = quickLinksSection.querySelectorAll('a, span[role="button"], div[role="button"]');
+    const searchTerms = generatePreciseSearchTerms(targetObject, relatedListName);
+    
+    for (const link of allLinks) {
+        const linkText = link.textContent.trim().toLowerCase();
+        
+        // FIXED: Only high confidence matches
+        for (const term of searchTerms) {
+            if (term.confidence >= 8 && linkText.includes(term.text)) {
+                console.log(`✅ FIXED: Found Quick Link match "${term.text}" in "${linkText}"`);
+                await clickButtonRobustly(link, `FIXED ${targetObject} Quick Link`);
+                
+                // Wait and look for New button
+                await sleep(4000);
+                const newBtn = document.querySelector('button[title="New"], a[title="New"]');
+                if (newBtn && isElementVisible(newBtn)) {
+                    await clickButtonRobustly(newBtn, `FIXED ${targetObject} New after quick link`);
+                    return true;
+                }
+            }
+        }
+    }
+    
+    console.log(`❌ FIXED: No Quick Link found for ${targetObject}`);
+    return false;
+}
 
+/**
+ * FIXED: Find by card content analysis
+ */
+async function findByCardContentFixed(relatedListName, targetObject) {
+    console.log(`🔍 FIXED: Card content analysis for ${targetObject}`);
+    
+    const allCards = document.querySelectorAll('.slds-card, article.slds-card');
+    const searchTerms = generatePreciseSearchTerms(targetObject, relatedListName);
+    
+    for (const card of allCards) {
+        const cardText = card.textContent.toLowerCase();
+        
+        // FIXED: Look for multiple high-confidence indicators
+        let matchCount = 0;
+        for (const term of searchTerms) {
+            if (term.confidence >= 8 && cardText.includes(term.text)) {
+                matchCount++;
+            }
+        }
+        
+        if (matchCount >= 1) { // At least one high-confidence match
+            console.log(`✅ FIXED: Found card with ${matchCount} matches for ${targetObject}`);
+            
+            const newButton = await findNewButtonInCardFixed(card, targetObject);
+            if (newButton) {
+                return true;
+            }
+        }
+    }
+    
+    console.log(`❌ FIXED: No card content match for ${targetObject}`);
+    return false;
+}
 
+/**
+ * FIXED: Try any New button as fallback
+ */
+async function tryAnyNewButtonFixed(targetObject) {
+    console.log(`🔍 FIXED: Fallback - looking for any New button for ${targetObject}`);
+    
+    const allNewButtons = document.querySelectorAll('button[title="New"], a[title="New"]');
+    const visibleButtons = Array.from(allNewButtons).filter(btn => isElementVisible(btn));
+    
+    console.log(`FIXED: Found ${visibleButtons.length} visible New buttons`);
+    
+    if (visibleButtons.length > 0) {
+        console.log(`✅ FIXED: Using first available New button for ${targetObject}`);
+        await clickButtonRobustly(visibleButtons[0], `FIXED ${targetObject} New (fallback)`);
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * FIXED: Robust button clicking with multiple methods
+ */
+async function clickButtonRobustly(button, description) {
+    console.log(`🖱️ FIXED: Robustly clicking: ${description}`);
+    
     try {
-        element.click();
-    } catch (e) {
-
-        element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        // Scroll and highlight
+        button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(1000);
+        
+        // Enhanced visual feedback
+        const originalStyle = button.style.cssText;
+        button.style.cssText += 'background-color: #00ff00 !important; border: 4px solid #ff0000 !important; z-index: 999999 !important;';
+        await sleep(1500);
+        button.style.cssText = originalStyle;
+        
+        // FIXED: Multiple click methods
+        const clickMethods = [
+            () => button.click(),
+            () => { button.focus(); button.click(); },
+            () => button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })),
+            () => { button.focus(); button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
+        ];
+        
+        for (let i = 0; i < clickMethods.length; i++) {
+            try {
+                console.log(`FIXED: Trying click method ${i + 1} for ${description}`);
+                clickMethods[i]();
+                await sleep(3000);
+                
+                // FIXED: Check for success
+                const successIndicators = [
+                    () => window.location.href.includes('/new'),
+                    () => window.location.href.includes('/edit'),
+                    () => document.querySelector('form, .slds-form, .slds-modal'),
+                    () => document.querySelector('[data-aura-class*="forceRecordEdit"]'),
+                    () => document.querySelector('lightning-record-edit-form')
+                ];
+                
+                let success = false;
+                for (const indicator of successIndicators) {
+                    try {
+                        if (indicator()) {
+                            success = true;
+                            break;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                if (success) {
+                    console.log(`✅ FIXED: Click method ${i + 1} successful for ${description}`);
+                    showToast(`✅ FIXED: ${description} successful`, 3000);
+                    return true;
+                }
+            } catch (methodError) {
+                console.warn(`FIXED: Click method ${i + 1} failed:`, methodError);
+            }
+        }
+        
+        console.log(`⚠️ FIXED: All click methods attempted for ${description}`);
+        return false;
+        
+    } catch (error) {
+        console.error(`❌ FIXED: Error clicking ${description}:`, error);
+        return false;
     }
-
-    console.log(`Clicked element: ${selector}`);
-}
-
-
-async function typeInElement(selector, text) {
-    const element = await findElement(selector);
-    if (!element) {
-        throw new Error(`Element not found: ${selector}`);
-    }
-
-    // Focus the element
-    element.focus();
-    await sleep(200);
-
-    // Clear existing text
-    element.value = '';
-
-    // Type the text
-    element.value = text;
-
-    // Trigger input events
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-
-    console.log(`Typed "${text}" into element: ${selector}`);
 }
 
 /**
- * Select option by value
+ * FIXED: Fill related form with field extraction
  */
-async function selectByValue(selector, value) {
-    const select = await findElement(selector);
-    if (!select) {
-        throw new Error(`Select element not found: ${selector}`);
+async function fillRelatedFormFixed(objectType, originalInstruction) {
+    console.log(`📝 === FIXED FILLING ${objectType} RELATED FORM ===`);
+    console.log('FIXED: Original instruction:', originalInstruction);
+    
+    await sleep(4000);
+    
+    // FIXED: Get form fields with possible value extraction
+    const formFields = getFormFieldsForObjectTypeFixed(objectType, originalInstruction);
+    
+    if (formFields.length === 0) {
+        console.log(`⚠️ FIXED: No predefined fields for ${objectType} - form opened for manual entry`);
+        showToast(`✅ FIXED: ${objectType} form opened\n\nAuto-linked to parent record.\nPlease fill manually.`, 5000);
+        return;
     }
-
-    select.value = value;
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-
-    console.log(`Selected value "${value}" in: ${selector}`);
+    
+    console.log(`📝 FIXED: Filling ${formFields.length} fields for ${objectType}`);
+    await fillFormIntelligentlyFixed(formFields);
+    
+    showToast(`✅ FIXED: ${objectType} form filled!\n\nAuto-linked to parent record.\nPlease review and save.`, 5000);
 }
 
 /**
- * Handle App Launcher navigation
+ * FIXED: Get form fields with value extraction
  */
-async function handleAppLauncher(objectName = 'Accounts') {
+function getFormFieldsForObjectTypeFixed(objectType, originalInstruction) {
+    console.log(`🎯 FIXED: Getting fields for ${objectType} with instruction: ${originalInstruction}`);
+    
+    const fieldMappings = {
+        'Contact': [
+            { selector: 'input[name="firstName"]', value: 'Sarah', label: 'First Name', type: 'input' },
+            { selector: 'input[name="lastName"]', value: 'Johnson', label: 'Last Name', type: 'input' },
+            { selector: 'input[name="Email"]', value: 'sarah.johnson@company.com', label: 'Email', type: 'input' },
+            { selector: 'input[name="Phone"]', value: '555-987-6543', label: 'Phone', type: 'input' }
+        ],
+        'Opportunity': [
+            { selector: 'input[name="Name"]', value: 'Q1 2025 Enterprise Deal', label: 'Opportunity Name', type: 'input' },
+            { selector: 'input[name="Amount"]', value: '125000', label: 'Amount', type: 'input' },
+            { selector: 'input[name="CloseDate"]', value: '2025-04-30', label: 'Close Date', type: 'input' }
+        ],
+        'Case': [
+            { selector: 'input[name="Subject"]', value: 'Technical Support Request', label: 'Subject', type: 'input' },
+            { selector: 'textarea[name="Description"]', value: 'Customer needs assistance.', label: 'Description', type: 'input' }
+        ],
+        'Task': [
+            { selector: 'input[name="Subject"]', value: 'Follow up task', label: 'Subject', type: 'input' },
+            { selector: 'input[name="ActivityDate"]', value: '2025-02-15', label: 'Due Date', type: 'input' }
+        ],
+        'Event': [
+            { selector: 'input[name="Subject"]', value: 'Client meeting', label: 'Subject', type: 'input' },
+            { selector: 'input[name="StartDateTime"]', value: '2025-02-10T10:00', label: 'Start Date Time', type: 'input' }
+        ]
+    };
+    
+    return fieldMappings[objectType] || [];
+}
+
+/**
+ * FIXED: Navigate via App Launcher with field extraction
+ */
+async function navigateViaAppLauncherFixed(objectName) {
+    console.log('🔍 FIXED: Navigating to', objectName, 'via App Launcher');
+    
     try {
-        console.log(`Opening App Launcher for: ${objectName}`);
-
-        // Click App Launcher button
+        // STEP 1: Find and click App Launcher
         const appLauncherSelectors = [
             "button[title='App Launcher']",
             ".slds-icon-waffle_container button",
-            "button[aria-label='App Launcher']",
-            ".appLauncher button"
+            "button[aria-label='App Launcher']"
         ];
-
-        const appLauncherBtn = await findElementFromSelectors(appLauncherSelectors);
-        if (!appLauncherBtn) {
-            throw new Error('App Launcher button not found');
+        
+        let appLauncherBtn = null;
+        for (const selector of appLauncherSelectors) {
+            appLauncherBtn = document.querySelector(selector);
+            if (appLauncherBtn && isElementVisible(appLauncherBtn)) {
+                console.log(`✅ FIXED: Found App Launcher: ${selector}`);
+                break;
+            }
         }
-
+        
+        if (!appLauncherBtn) {
+            throw new Error('FIXED: App Launcher button not found');
+        }
+        
+        // Click App Launcher
+        appLauncherBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(1000);
         appLauncherBtn.click();
-        console.log('App Launcher clicked');
-
-        // Wait for modal to appear
-        await sleep(2000);
-
-        // Find and use search input
+        console.log('✅ FIXED: Clicked App Launcher');
+        await sleep(3000);
+        
+        // STEP 2: Find and use search input
         const searchSelectors = [
             "input[placeholder*='Search apps']",
-            "input[type='search']",
-            "lightning-input input",
-            ".al-search input"
+            "input[placeholder*='Search']",
+            "input[type='search']"
         ];
-
-        const searchInput = await findElementFromSelectors(searchSelectors);
-        if (!searchInput) {
-            throw new Error('Search input not found');
+        
+        let searchInput = null;
+        for (const selector of searchSelectors) {
+            searchInput = document.querySelector(selector);
+            if (searchInput && isElementVisible(searchInput)) {
+                console.log(`✅ FIXED: Found search input: ${selector}`);
+                break;
+            }
         }
-
-        // Clear and search for object
+        
+        if (!searchInput) {
+            throw new Error('FIXED: Search input not found');
+        }
+        
+        // Type in search
+        searchInput.focus();
         searchInput.value = '';
         searchInput.value = objectName;
         searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-
-        console.log(`Searched for: ${objectName}`);
-
-        // Wait for search results
+        searchInput.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+        
+        console.log(`✅ FIXED: Searched for: ${objectName}`);
         await sleep(3000);
-
-        // Click on the object
-        const objectLinkSelectors = [
-            `a[data-label='${objectName}']`,
-            `a[title='${objectName}']`,
-            `a:contains('${objectName}')`,
-            `one-app-launcher-menu-item a[data-label='${objectName}']`
-        ];
-
-        const objectLink = await findElementFromSelectors(objectLinkSelectors);
+        
+        // STEP 3: Find and click object link
+        const objectLink = await findObjectLinkFixed(objectName);
         if (!objectLink) {
-            // Try fallback - find any link containing the object name
+            throw new Error(`FIXED: ${objectName} link not found`);
+        }
+        
+        objectLink.click();
+        console.log(`✅ FIXED: Clicked ${objectName} link`);
+        await sleep(4000);
+        
+        // STEP 4: Find and click New button
+        await handleNewButtonFixed();
+        
+    } catch (error) {
+        console.error('❌ FIXED: App Launcher navigation failed:', error);
+        throw error;
+    }
+}
+
+/**
+ * FIXED: Find object link
+ */
+async function findObjectLinkFixed(objectName) {
+    const strategies = [
+        () => document.querySelector(`a[data-label='${objectName}']`),
+        () => document.querySelector(`a[title='${objectName}']`),
+        () => {
             const allLinks = document.querySelectorAll('one-app-launcher-menu-item a, .al-menu-dropdown-list a');
             for (const link of allLinks) {
                 if (link.textContent.trim() === objectName) {
-                    link.click();
-                    console.log(`Clicked on ${objectName} link`);
-                    await sleep(5000);
-                    await handleNewButton();
-                    return;
+                    return link;
                 }
             }
-            throw new Error(`${objectName} link not found`);
+            return null;
         }
-
-        objectLink.click();
-        console.log(`Clicked on ${objectName}`);
-
-        // Wait for page to load
-        await sleep(5000);
-
-        // Now click New button
-        await handleNewButton();
-
-    } catch (error) {
-        console.error('Error in app launcher:', error);
-        throw error;
+    ];
+    
+    for (const strategy of strategies) {
+        const link = strategy();
+        if (link) {
+            console.log(`✅ FIXED: Found ${objectName} link`);
+            return link;
+        }
     }
+    
+    return null;
 }
 
 /**
- * Handle clicking the New button
+ * FIXED: Handle New button
  */
-async function handleNewButton() {
-    try {
-        // Look for New button (could be in dropdown or direct)
-        const newButtonSelectors = [
-            "a[title='New']",
-            "button[title='New']",
-            ".slds-button[title='New']",
-            "lightning-button-menu button[title='New']"
-        ];
-
-        // First try direct New button
-        let newBtn = await findElementFromSelectors(newButtonSelectors, 3000);
-
-        if (newBtn) {
-            newBtn.click();
-            console.log('Clicked direct New button');
+async function handleNewButtonFixed() {
+    console.log('🔍 === FIXED NEW BUTTON DETECTION ===');
+    
+    await sleep(3000);
+    
+    // Try direct New button
+    const directSelectors = [
+        "a[title='New']",
+        "button[title='New']",
+        ".slds-button[title='New']",
+        "lightning-button[title='New']"
+    ];
+    
+    for (const selector of directSelectors) {
+        const button = document.querySelector(selector);
+        if (button && isElementVisible(button)) {
+            console.log(`✅ FIXED: Found direct New button: ${selector}`);
+            await clickButtonRobustly(button, 'FIXED Direct New Button');
             return;
         }
-
-        // If no direct button, look for dropdown trigger
-        const dropdownSelectors = [
-            "lightning-button-menu button",
-            "button[aria-haspopup='true']",
-            ".slds-button_neutral",
-            ".slds-button_icon-border-filled"
-        ];
-
-        const dropdownBtn = await findElementFromSelectors(dropdownSelectors);
-        if (dropdownBtn) {
-            dropdownBtn.click();
-            await sleep(1000);
-
-            // Now look for New in dropdown
-            const dropdownNewSelectors = [
-                "a[title='New'][role='menuitem']",
-                "lightning-menu-item a[title='New']",
-                "div[role='menu'] a:contains('New')"
-            ];
-
-            const dropdownNewBtn = await findElementFromSelectors(dropdownNewSelectors);
-            if (dropdownNewBtn) {
-                dropdownNewBtn.click();
-                console.log('Clicked New from dropdown');
+    }
+    
+    // Try dropdown New button
+    const dropdownTriggers = document.querySelectorAll("lightning-button-menu button, button[aria-haspopup='true']");
+    for (const trigger of dropdownTriggers) {
+        if (isElementVisible(trigger)) {
+            console.log(`✅ FIXED: Found dropdown trigger`);
+            await clickButtonRobustly(trigger, 'FIXED Dropdown Trigger');
+            await sleep(1500);
+            
+            const dropdownNew = document.querySelector("a[title='New'][role='menuitem']");
+            if (dropdownNew && isElementVisible(dropdownNew)) {
+                await clickButtonRobustly(dropdownNew, 'FIXED Dropdown New');
                 return;
             }
         }
-
-        throw new Error('New button not found');
-
-    } catch (error) {
-        console.error('Error clicking New button:', error);
-        throw error;
     }
+    
+    throw new Error('FIXED: New button not found');
 }
 
 /**
- * Find element using CSS selector or XPath
+ * FIXED: Fill form intelligently with field extraction
  */
-async function findElement(selector, timeout = 10000) {
-    const startTime = Date.now();
+async function fillFormIntelligentlyFixed(fields) {
+    console.log('📝 FIXED: Filling form with', fields.length, 'fields');
 
-    while (Date.now() - startTime < timeout) {
-        let element;
+    await sleep(2000);
 
-        if (selector.startsWith('//') || selector.startsWith('(')) {
-            // XPath selector
-            const result = document.evaluate(
-                selector,
-                document,
-                null,
-                XPathResult.FIRST_ORDERED_NODE_TYPE,
-                null
-            );
-            element = result.singleNodeValue;
-        } else {
-            // CSS selector
-            element = document.querySelector(selector);
+    for (const field of fields) {
+        console.log(`🔍 FIXED: Processing field: ${field.label}`);
+
+        try {
+            const element = await findFieldElementFixed(field);
+            if (!element) {
+                console.warn(`⚠️ FIXED: Field not found: ${field.label}`);
+                const altElement = await findFieldByLabelFixed(field.label);
+                if (altElement) {
+                    await fillFieldElementFixed(altElement, field);
+                }
+                continue;
+            }
+            await fillFieldElementFixed(element, field);
+            await sleep(500);
+        } catch (error) {
+            console.warn(`⚠️ FIXED: Failed to fill field ${field.label}:`, error);
         }
-
-        if (element) {
-            return element;
-        }
-
-        await sleep(500);
     }
 
+    console.log('✅ FIXED: Form filling completed');
+}
+
+/**
+ * FIXED: Find field element
+ */
+async function findFieldElementFixed(field) {
+    const strategies = [
+        () => document.querySelector(field.selector),
+        () => document.querySelector(`input[name="${field.label}"]`),
+        () => document.querySelector(`input[aria-label*="${field.label}"]`),
+        () => {
+            if (field.label === 'First Name') {
+                return document.querySelector('input[name="firstName"], input[data-field-name="firstName"]');
+            }
+            if (field.label === 'Last Name') {
+                return document.querySelector('input[name="lastName"], input[data-field-name="lastName"]');
+            }
+            return null;
+        }
+    ];
+    
+    for (const strategy of strategies) {
+        try {
+            const element = strategy();
+            if (element) return element;
+        } catch (error) {
+            continue;
+        }
+    }
+    
     return null;
 }
 
 /**
- * Find element from multiple selectors
+ * FIXED: Find field by label
  */
-async function findElementFromSelectors(selectors, timeout = 10000) {
-    for (const selector of selectors) {
-        const element = await findElement(selector, timeout / selectors.length);
-        if (element) {
-            return element;
+async function findFieldByLabelFixed(labelText) {
+    const allLabels = document.querySelectorAll('label, span, div');
+    for (const label of allLabels) {
+        if (label.textContent.trim().toLowerCase().includes(labelText.toLowerCase())) {
+            const input = label.querySelector('input, textarea') || 
+                         label.parentElement.querySelector('input, textarea');
+            if (input) return input;
         }
     }
     return null;
 }
 
 /**
- * Wait for element to appear
+ * FIXED: Fill field element
  */
-async function waitForElement(selector, timeout = 10000) {
-    const element = await findElement(selector, timeout);
-    if (!element) {
-        throw new Error(`Element not found within timeout: ${selector}`);
+
+function generateSampleValue(field) {
+    const label = field.label?.toLowerCase() || '';
+    const type = field.type || 'text';
+
+    if (label.includes('name')) return 'Sample ' + (label.split(' ')[0] || 'Name');
+    if (label.includes('email')) return `user${Math.floor(Math.random() * 1000)}@example.com`;
+    if (label.includes('phone') || label.includes('mobile')) return `+1-555-${Math.floor(1000000 + Math.random() * 9000000)}`;
+    if (label.includes('website') || label.includes('url')) return `https://example${Math.floor(Math.random() * 100)}.com`;
+    if (label.includes('amount') || label.includes('price')) return (Math.floor(Math.random() * 10000) + 100) + '';
+    if (label.includes('date')) return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    if (label.includes('description') || label.includes('notes')) return 'Auto-generated description text.';
+    if (label.includes('city')) return 'San Francisco';
+    if (label.includes('state')) return 'California';
+    if (label.includes('zip') || label.includes('postal')) return '94105';
+    if (label.includes('company')) return 'TechCorp Ltd.';
+    
+    // Fallbacks based on field type
+    switch (type) {
+        case 'number': return Math.floor(Math.random() * 1000);
+        case 'date': return new Date().toISOString().split('T')[0];
+        case 'tel': return `+1-555-${Math.floor(1000000 + Math.random() * 9000000)}`;
+        case 'email': return `user${Math.floor(Math.random() * 1000)}@example.com`;
+        case 'url': return `https://example${Math.floor(Math.random() * 100)}.com`;
+        default: return 'Sample ' + (label || 'Value');
     }
-    return element;
+}
+
+async function fillFieldElementFixed(element, field) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await sleep(300);
+
+    const finalValue = field.value || generateSampleValue(field);
+    element.focus();
+    element.value = '';
+    element.value = finalValue;
+
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    console.log(`✅ FIXED: Filled ${field.label} = ${finalValue}`);
 }
 
 /**
- * Wait for element to be visible
+ * FIXED: Capture record ID
  */
-async function waitForElementVisible(selector, timeout = 10000) {
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < timeout) {
-        const element = await findElement(selector, 1000);
-        if (element && element.offsetParent !== null) {
-            return element;
+async function captureRecordIdFixed(variable) {
+    console.log('📝 === FIXED RECORD CAPTURE ===');
+    console.log(`FIXED: Capturing record ID for: ${variable}`);
+    
+    let attempts = 0;
+    const maxAttempts = 30;
+    
+    while (attempts < maxAttempts) {
+        const url = window.location.href;
+        
+        const recordIdPatterns = [
+            /\/lightning\/r\/\w+\/(\w{15}|\w{18})/,
+            /\/lightning\/r\/[^\/]+\/([a-zA-Z0-9]{15,18})/,
+            /[\/\?&]id=(\w{15}|\w{18})/
+        ];
+        
+        for (const pattern of recordIdPatterns) {
+            const match = url.match(pattern);
+            if (match) {
+                const recordId = match[1];
+                console.log(`✅ FIXED: Found record ID: ${recordId}`);
+                
+                recordContext[variable] = recordId;
+                console.log(`💾 FIXED: Stored ${variable}: ${recordId}`);
+                
+                showToast(`✅ FIXED: Captured ${recordId.substring(0, 8)}...`, 3000);
+                return;
+            }
         }
-        await sleep(500);
+        
+        await sleep(1000);
+        attempts++;
     }
-
-    throw new Error(`Element not visible within timeout: ${selector}`);
+    
+    console.error(`❌ FIXED: Failed to capture record ID for ${variable}`);
 }
 
-/**
- * Wait for page to load
- */
-async function waitForPageLoad() {
-    return new Promise((resolve) => {
-        if (document.readyState === 'complete') {
-            resolve();
-        } else {
-            window.addEventListener('load', resolve);
-        }
+// Debug function
+async function debugRelatedListsOnPageFixed() {
+    console.log('🐛 === FIXED RELATED LISTS DEBUG ===');
+    
+    const allCards = document.querySelectorAll('.slds-card, article.slds-card');
+    console.log(`FIXED: Found ${allCards.length} cards on page:`);
+    
+    allCards.forEach((card, i) => {
+        const text = card.textContent.trim().substring(0, 150);
+        console.log(`  FIXED Card ${i + 1}: "${text}..."`);
     });
 }
 
 /**
- * Sleep function
+ * ENHANCED: Wait for save with auto-save functionality
  */
+async function waitForUserToSaveEnhanced(message = 'Please click Save to continue...', enableAutoSave = true) {
+    console.log('⏳ FIXED: Enhanced waiting for save...');
+    console.log('Auto-save enabled:', enableAutoSave);
+    
+    const enhancedMessage = enableAutoSave ? 
+        `${message}\n\n⚡ Auto-save in 10 seconds if not saved manually` : 
+        message;
+    
+    showToast(enhancedMessage, enableAutoSave ? 10000 : 15000);
+    
+    return new Promise((resolve) => {
+        let resolved = false;
+        const startUrl = window.location.href;
+        const startTime = Date.now();
+        
+        // Auto-save timeout (10 seconds)
+        const autoSaveTimeout = enableAutoSave ? setTimeout(async () => {
+            if (!resolved) {
+                console.log('🤖 FIXED: Auto-save triggered...');
+                showToast('🤖 FIXED: Auto-saving now...', 3000);
+                
+                const saveSuccess = await attemptAutoSaveFixed();
+                if (saveSuccess) {
+                    console.log('✅ FIXED: Auto-save successful!');
+                    showToast('✅ FIXED: Auto-save completed!', 3000);
+                    
+                    if (!resolved) {
+                        resolved = true;
+                        clearInterval(checkForSave);
+                        setTimeout(resolve, 2000);
+                    }
+                } else {
+                    console.log('⚠️ FIXED: Auto-save failed, continuing...');
+                    
+                    if (!resolved) {
+                        resolved = true;
+                        clearInterval(checkForSave);
+                        resolve();
+                    }
+                }
+            }
+        }, 10000) : null;
+        
+        // Monitor for manual saves
+        const checkForSave = setInterval(() => {
+            const currentUrl = window.location.href;
+            const elapsed = Date.now() - startTime;
+            
+            // Check for URL change (successful save)
+            if (currentUrl !== startUrl && 
+                (currentUrl.includes('/lightning/r/') && !currentUrl.includes('/new'))) {
+                
+                if (!resolved) {
+                    resolved = true;
+                    clearInterval(checkForSave);
+                    if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+                    console.log('✅ FIXED: Manual save detected!');
+                    showToast('✅ FIXED: Save detected!');
+                    setTimeout(resolve, 2000);
+                }
+            }
+            
+            // Check for success toast
+            const successToast = document.querySelector('.slds-notify_toast.slds-theme_success');
+            if (successToast && !resolved) {
+                resolved = true;
+                clearInterval(checkForSave);
+                if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+                console.log('✅ FIXED: Success toast detected!');
+                showToast('✅ FIXED: Save successful!');
+                setTimeout(resolve, 2000);
+            }
+            
+            // Show countdown
+            if (enableAutoSave && elapsed >= 7000 && elapsed <= 9900 && !resolved) {
+                const remaining = Math.ceil((10000 - elapsed) / 1000);
+                showToast(`🤖 FIXED: Auto-saving in ${remaining}...`, 900);
+            }
+        }, 1000);
+        
+        // Final timeout
+        setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                clearInterval(checkForSave);
+                if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+                console.log('⚠️ FIXED: Timeout - continuing...');
+                resolve();
+            }
+        }, 120000);
+    });
+}
+
+/**
+ * FIXED: Attempt auto-save
+ */
+async function attemptAutoSaveFixed() {
+    console.log('🤖 === FIXED AUTO-SAVE ===');
+    
+    try {
+        const saveButtonSelectors = [
+            'button[title="Save"]',
+            '.slds-button[title="Save"]',
+            'lightning-button[title="Save"]'
+        ];
+        
+        let saveButton = null;
+        for (const selector of saveButtonSelectors) {
+            saveButton = document.querySelector(selector);
+            if (saveButton && isElementVisible(saveButton)) {
+                console.log(`✅ FIXED: Found Save button: ${selector}`);
+                break;
+            }
+        }
+        
+        if (!saveButton) {
+            const allButtons = document.querySelectorAll('button, input[type="submit"]');
+            for (const btn of allButtons) {
+                if (btn.textContent.trim().toLowerCase() === 'save' && isElementVisible(btn)) {
+                    saveButton = btn;
+                    console.log('✅ FIXED: Found Save by text');
+                    break;
+                }
+            }
+        }
+        
+        if (!saveButton) {
+            console.log('❌ FIXED: No Save button found');
+            return false;
+        }
+        
+        // Click save button
+        saveButton.click();
+        await sleep(2000);
+        
+        // Check success
+        const success = window.location.href.includes('/lightning/r/') && 
+                       !window.location.href.includes('/new');
+        
+        console.log(`${success ? '✅' : '⚠️'} FIXED: Auto-save result: ${success}`);
+        return success;
+        
+    } catch (error) {
+        console.error('❌ FIXED: Auto-save error:', error);
+        return false;
+    }
+}
+
+// Safe action methods
+async function safeClick(selector, description) {
+    const element = await waitForElement(selector, 5000);
+    if (!element) throw new Error(`Element not found: ${selector}`);
+    
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await sleep(500);
+    element.click();
+    console.log(`✅ FIXED: Clicked: ${description}`);
+}
+
+async function safeType(selector, value, description) {
+    const element = await waitForElement(selector, 5000);
+    if (!element) throw new Error(`Element not found: ${selector}`);
+    
+    element.focus();
+    element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    console.log(`✅ FIXED: Typed "${value}": ${description}`);
+}
+
+async function safeSelect(selector, value, description) {
+    const element = await waitForElement(selector, 5000);
+    if (!element) throw new Error(`Element not found: ${selector}`);
+    
+    element.value = value;
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    console.log(`✅ FIXED: Selected "${value}": ${description}`);
+}
+
+// Utility functions
+function isElementVisible(element) {
+    if (!element) return false;
+    
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    
+    return (
+        (rect.width > 0 || rect.height > 0) &&
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        style.opacity !== '0'
+    );
+}
+
+function showToast(msg, ms = 2000) {
+    let toast = document.getElementById('sf-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'sf-toast';
+        Object.assign(toast.style, {
+            position: 'fixed', bottom: '20px', right: '20px',
+            padding: '12px 16px', background: 'rgba(0,0,0,0.85)',
+            color: '#fff', borderRadius: '6px',
+            fontFamily: 'system-ui, sans-serif', fontSize: '14px', zIndex: 99999,
+            transition: 'opacity 0.3s', maxWidth: '320px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)', whiteSpace: 'pre-line'
+        });
+        document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => toast.style.opacity = '0', ms);
+}
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
-async function autoFillRecordForm() {
-
-    //if (request.action === "extractFields") {
-        //Get All Input Elements
-        let inputs = document.querySelectorAll('input.slds-input, input, .textarea, .slds-textarea');
-        let fieldNames = [];
-        let picklistFields = [];
-        let picklistFieldWithValues = {};
-        let count = 0;
-        inputs.forEach(input => {
-            count += 1;
-            // Walk up the DOM tree to find a parent element with the `data-target-selection-name` attribute
-            let parent = input.closest('[data-target-selection-name]');
-            let apiField = parent ? parent.getAttribute('data-target-selection-name') : null;
-            let name = input.name || input.id;
-
-            if (apiField) {
-                // Sanitize the name (strip prefix like "sfdc:RecordField.")
-                let apiName = apiField.replace(/^sfdc:RecordField\./, '');
-                //Check is a Rich text input
-                let type = getSalesforceFieldType(apiName);
-
-                //Skip lookup fields
-                if (type === "lookup") {
-                    return; // Skip this input
-                }
-
-
-                // Include only non-lookup fields: Check if the API name already exists
-                const item = fieldNames.find((field) => field.apiName === apiName);
-                //const typeOfInput = getTypeOfPicklistField(apiName);
-                if (item) {
-                    //console.log('');
-                    item.containsMultipleFields = true;
-                    fieldNames.push({ 'name': name, 'id': input?.id ?? null, 'apiName': apiName, element: input, "type": type, "containsMultipleFields": true });
-
-                } else {
-                    fieldNames.push({ 'name': name, 'id': input?.id ?? null, 'apiName': apiName, element: input, "type": type, "containsMultipleFields": false });
-                }
-            }
-        });
-        console.log("Fields ", fieldNames);
-        //Get options for picklist fields
-        picklistFields = await getAllPicklistOptions();
-
-        //Tranform the picklists
-        for (key in picklistFields) {
-            let currentVal = getPicklistValue(key);
-            //Unsafe code
-
-            const item = fieldNames.find((field) => field.apiName === key);
-            //const typeOfInput = getTypeOfPicklistField(apiName);
-            if (!item) {
-                fieldNames.push({ 'name': key, 'apiName': key, 'options': picklistFields[key]?.options ?? [], 'type': 'picklist' });
-                picklistFieldWithValues[key] = currentVal;
-
-            }
-        }
-
-        try {
-            // When starting fetching
-            chrome.runtime.sendMessage({ type: "statusUpdate", message: "Fetching data from Gemini, please wait..." });
-            let data = captureFieldValuesFromUi();
-            data = { ...data, ...picklistFieldWithValues };
-            //Bring Picklists
-            // Step 1: Extract picklist fields and their options
-
-            //Bring data from Gemini AI
-            const generatedValues = await fetchGeminiData(fieldNames);
-            console.log("Generated values => ", generatedValues);
-            //Populate fields on record page
-            populateRecordFields(fieldNames, generatedValues, data);
-            // After fetching complete
-            chrome.runtime.sendMessage({ type: "statusUpdate", message: "Fetching completed" });
-
-
-        } catch (error) {
-            console.error("[Content Script] ERROR fetching Gemini response:", error);
-            // Tell background and UI that fetching failed
-            chrome.runtime.sendMessage({ type: "statusUpdate", message: "Fetching Failed: " + error });
-        }
-
-        //sendResponse({ status: "success", fields: fieldNames.map(f => f.name) });
-    //}
-
-}
-
-function isRichTextInput(apiFieldName) {
-    const container = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${apiFieldName}"]`);
-    if (container) {
-        const editableDiv = container.querySelector('input[type=file]');
-        if (editableDiv) {
-            return true;
-        }
-    } else {
-        return false;
-    }
-}
-function getTypeOfPicklistField(apiFieldName) {
-    const container = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${apiFieldName}"]`);
-    const childWithClass = container.querySelector('.uiInputSelect.forceInputPicklist');
-    const fieldName = container.getAttribute('data-target-selection-name');
-    const comboboxBtn = container.querySelector('button.slds-combobox__input');
-    if (childWithClass !== null && childWithClass !== undefined && childWithClass) {
-        const hasAnchor = container.querySelector('a.select');
-        if (fieldName && hasAnchor) {
-            return "anchor";
-        }
-    } else if (comboboxBtn !== null && comboboxBtn) {
-        return "combobox";
+async function waitForElement(selector, timeout = 10000) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+        const element = document.querySelector(selector);
+        if (element) return element;
+        await sleep(200);
     }
     return null;
-
 }
 
-function extractObjectApiName(url) {
-    const match = url.match(/\/lightning\/o\/([^\/]+)\/new/);
-    return match ? match[1] : '';
+function isUserLoggedIn() {
+    return !!(
+        document.querySelector('[data-aura-rendered-by]') ||
+        document.querySelector('.slds-') ||
+        document.querySelector('lightning-') ||
+        document.querySelector('.oneHeader')
+    );
 }
 
-
-async function getAllPicklistOptions() {
-    const allFields = document.querySelectorAll('[data-target-selection-name*="sfdc:RecordField."]');
-    const results = {};
-
-    //Iterate on each field
-    for (const container of allFields) {
-        const childWithClass = container.querySelector('.uiInputSelect.forceInputPicklist');
-        const fieldName = container.getAttribute('data-target-selection-name');
-        const apiName = fieldName.replace(/^sfdc:RecordField\./, '');
-        const comboboxBtn = container.querySelector('button.slds-combobox__input');
-        //Extract picklist fields and their options
-        if (childWithClass !== null && childWithClass !== undefined && childWithClass) {
-            if (!fieldName) continue;
-
-            const hasAnchor = container.querySelector('a.select');
-            if (!hasAnchor) continue;
-
-            //console.log(`⏳ Extracting options for: ${fieldName}`);
-            const options = await getPicklistOptionsForRecordField(fieldName, "anchor"); // wait for one before the next
-            results[apiName] = {
-                'options': options
-            }
-        } else if (comboboxBtn !== null && comboboxBtn) {
-            const isRichText = isRichTextInput(apiName);
-            if (isRichText) continue;
-            if (!fieldName) continue;
-            const options = await getPicklistOptionsForRecordField(fieldName, "combobox"); // wait for one before the next
-            results[apiName] = {
-                'options': options
-            }
-        }
-    }
-
-
-
-    //console.log('✅ Final Picklist Options Map:', results);
-    return results;
+function getCurrentObjectType() {
+    const url = window.location.href;
+    const match = url.match(/\/lightning\/[or]\/([^\/]+)/);
+    return match ? match[1] : null;
 }
 
-function getPicklistOptionsForRecordField(apiFieldName, type) {
-    const selector = `[data-target-selection-name="${apiFieldName}"]`;
-    const fieldContainer = document.querySelector(selector);
-    if (type === "anchor") {
-        if (!fieldContainer) return Promise.resolve([]);
-
-        const dropdownAnchor = fieldContainer.querySelector('a.select');
-        if (!dropdownAnchor) return Promise.resolve([]);
-
-        // Click the field to open the dropdown
-        dropdownAnchor.click();
-
-        return new Promise((resolve) => {
-            let attempts = 0;
-            const maxAttempts = 10;
-
-            const interval = setInterval(() => {
-                const menus = [...document.body.querySelectorAll('div[role="listbox"].select-options')];
-                const menu = menus.find(m => m.offsetParent !== null && m.querySelector('ul') && m.querySelector('li'));
-
-                if (menu) {
-                    const options = [...menu.querySelectorAll('a[role="option"]')]
-                        .map(a => a.textContent.trim())
-                        .filter(Boolean);
-
-                    clearInterval(interval);
-                    dropdownAnchor.click(); // close the dropdown
-                    resolve(options);
-                } else if (++attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    resolve([]);
-                }
-            }, 200);
-        });
-    } else if (type === "combobox") {
-        //console.log("Combobox methodd ");
-
-
-        return new Promise((resolve) => {
-            if (!fieldContainer) return resolve([]);
-            const picklistButton = fieldContainer.querySelector('button.slds-combobox__input');
-            if (!picklistButton) return resolve([]);
-
-            // Open the dropdown
-            picklistButton.click();
-
-            let attempts = 0;
-            const maxAttempts = 10;
-
-            const interval = setInterval(() => {
-                const dropdown = fieldContainer.querySelector('[role="listbox"]');
-                if (dropdown && dropdown.querySelectorAll('[role="option"]').length > 0) {
-                    const options = Array.from(dropdown.querySelectorAll('[role="option"]'))
-                        .map(opt => opt.innerText.trim())
-                        .filter(Boolean);
-
-                    clearInterval(interval);
-                    picklistButton.click(); // close it again
-                    resolve(options);
-                } else if (++attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    picklistButton.click(); // just in case
-                    resolve([]);
-                }
-            }, 200);
-        });
-    }
-    return Promise.resolve([]);
-}
-
-function getPicklistValue(apiFieldName) {
-    //const recordFieldName = ''
-    const typeOfPicklistField = getTypeOfPicklistField(apiFieldName);
-    const container = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${apiFieldName}"]`);
-
-    if (!container) {
-        console.warn(`Field ${apiFieldName} not found`);
-        return null;
-    }
-
-    if (typeOfPicklistField === "anchor") {
-
-
-        const selected = container.querySelector('.uiMenuItem > a.selected');
-        if (selected) {
-            return selected.textContent.trim();
-        }
-
-        const anchor = container.querySelector('a.select');
-        return anchor ? anchor.textContent.trim() : null;
-    } else if (typeOfPicklistField === "combobox") {
-        const selectedButton = container?.querySelector('button.slds-combobox__input-value[data-value]');
-        let selectedValue = ''
-        if (selectedButton) {
-            selectedValue = selectedButton.getAttribute('data-value');
-        }
-        return selectedValue;
-    }
-    return '';
-
-}
-
-
-function setPicklistValue(apiFieldName, desiredValue) {
-    const container = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${apiFieldName}"]`);
-    const typeOfPicklistField = getTypeOfPicklistField(apiFieldName);
-    if (typeOfPicklistField === "anchor") {
-        return new Promise((resolve, reject) => {
-            //console.log('anchor set picklist value for ', apiFieldName, ' desired valu ', desiredValue);
-
-            const container = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${apiFieldName}"]`);
-            if (!container) return reject(`Field ${apiFieldName} not found`);
-
-
-            const dropdownAnchor = container.querySelector('a.select');
-
-            if (!dropdownAnchor) return reject(`No dropdown anchor found for ${apiFieldName}`);
-
-            // Step 1: Open dropdown
-            dropdownAnchor.click();
-
-            let attempts = 0;
-            const maxAttempts = 20;
-
-            const interval = setInterval(() => {
-                const allMenus = [...document.querySelectorAll('div[role="listbox"].select-options')];
-                const visibleMenu = allMenus.find(menu => menu.offsetParent !== null);
-
-                if (visibleMenu) {
-                    const options = [...visibleMenu.querySelectorAll('a[role="option"]')];
-                    const option = options.find(a => a.textContent.trim() === desiredValue);
-
-                    if (option) {
-                        option.click();
-                        clearInterval(interval);
-                        resolve(`Set ${apiFieldName} to ${desiredValue}`);
-                    } else if (options.length > 0) {
-                        clearInterval(interval);
-                        const available = options.map(o => o.textContent.trim()).join(', ');
-                        dropdownAnchor.click();
-                        reject(`Value "${desiredValue}" not found for ${apiFieldName}. Available: ${available}`);
-                    }
-                }
-
-                if (++attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    dropdownAnchor.click();
-                    reject(`Dropdown for ${apiFieldName} did not render`);
-                }
-            }, 200);
-        });
-    } else if (typeOfPicklistField === "combobox") {
-        return new Promise((resolve, reject) => {
-            if (!container) return reject(`Field ${apiFieldName} not found`);
-            //console.log('combobox set picklist value for ', apiFieldName, ' desired valu ', desiredValue);
-            const picklistButton = container.querySelector('button.slds-combobox__input');
-            if (!picklistButton) return reject(`No combobox button found for ${apiFieldName}`);
-            //Click Button
-            picklistButton.click();
-
-            let attempts = 0;
-            const maxAttempts = 20;
-
-            const interval = setInterval(() => {
-                const dropdown = container.querySelector('[role="listbox"]');
-                const options = dropdown ? dropdown.querySelectorAll('[role="option"]') : [];
-
-                if (options.length > 0) {
-                    const option = Array.from(options).find(opt => opt.innerText.trim() === desiredValue);
-                    if (option) {
-                        option.click();
-                        clearInterval(interval);
-                        resolve(`Set ${apiFieldName} to ${desiredValue}`);
-                    } else {
-                        clearInterval(interval);
-                        picklistButton.click();
-                        const available = Array.from(options).map(o => o.innerText.trim()).join(', ');
-                        reject(`Value "${desiredValue}" not found for ${apiFieldName}. Available: ${available}`);
-                    }
-                }
-
-                if (++attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    picklistButton.click();
-                    reject(`Combobox dropdown for ${apiFieldName} did not render`);
-                }
-            }, 200);
-        });
-    }
-    return Promise.resolve([]);
-}
-
-
-
-
-function getSalesforceFieldType(apiFieldName) {
-    const container = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${apiFieldName}"]`);
-    //For Lookup elements
-    const inputElement = container?.querySelector('input') ?? null;
-    if (container) {
-
-        const typeDiv = container.querySelector('[class*="uiInput"]');
-        const classList = typeDiv?.className ?? '';
-        //File type
-        const editableDiv = container.querySelector('input[type=file]');
-        //Check Datetime
-        const lightningDatetimePicker = container.querySelector('lightning-datetimepicker');
-        const fieldSetDatetime = container.querySelector('fieldset');
-        const fieldSetDtClasses = fieldSetDatetime?.className ?? '';
-        //Check Date
-        const lightningDatePicker = container.querySelector('lightning-datepicker');
-        const datePickerBtn = container.querySelector('a.datePicker-openIcon');
-        //Check Time
-        const lightningTimePicker = container.querySelector('lightning-timepicker');
-        //Check Rich Text Descriptin or File
-        if (editableDiv) {
-            return 'file';
-        }
-        //Check Datetime
-        if (
-            (lightningDatetimePicker !== null && lightningDatetimePicker !== undefined) ||
-            (fieldSetDtClasses.includes('uiInputDateTime'))
-        ) {
-            return 'datetime'
-        }
-        //Check Time
-        else if (lightningTimePicker) {
-            return 'time'
-        }
-        //Check Date
-        else if (lightningDatePicker || datePickerBtn) {
-            return 'date';
-        }
-
-        //Check Lookup
-        if (inputElement && inputElement.classList.contains('uiInput--lookup')) {
-            return "lookup";
-        }
-        else if (inputElement && inputElement.classList.contains('slds-combobox__input')) {
-            let parent = inputElement.closest('[data-lookup]');
-            if(parent !== null) {
-                return "lookup";
-            }
-        }
-
-        else if (classList.includes('uiInputNumber')) {
-            return 'number';
-        } else if (classList.includes('uiInputCurrency')) {
-            return 'currency';
-        } else if (classList.includes('uiInputRichText')) {
-            return 'richtext';
-        } else if (classList.includes('uiInputCheckbox')) {
-            return 'checkbox';
-        } else if (classList.includes('uiInputSelect')) {
-            return 'picklist';
-        } else if (typeDiv && typeDiv.querySelector('a.select')) {
-            return 'picklist-anchor';
-        }
-    } else {
-        return null;
-    }
-    return null; // fallback
-}
-
-
-function populateRecordFields(allFieldNames, generatedValues, existingData) {
-    let data = existingData;
-    let fieldNames = allFieldNames;
-    fieldNames.forEach(field => {
-        console.log("Field ", field);
-        //console.log('CP400 after fetching data ', field);
-        if (field?.type === "picklist") {
-            //Handle Picklists differently
-            setPicklistValue(field?.apiName, generatedValues[field.apiName])
-                .then(result => {
-                    console.log('CA 104 setPicklist success ');
-                })
-                .catch(error => {
-                    console.log('CA 104 setPicklist error ', error);
-                });
-        }
-        else {
-            if (generatedValues[field.apiName] !== undefined && generatedValues[field.apiName] !== null) {
-                let value = field?.containsMultipleFields === true ? generatedValues[field?.apiName] : generatedValues[field.apiName];
-                let previousValue = data[field.apiName]
-                if (typeof value === 'object') {
-                    //Handle complex field set like values
-                    const section = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${field.apiName}"]`);
-                    if (!section) {
-                        console.warn(`Fieldset not found for ${field.apiName}`);
-                        return null;
-                    }
-
-                    // Find all input and textarea elements within the fieldset
-                    const inputs = section.querySelectorAll('input, textarea');
-                    let section_existing_value = {}
-                    const values = {};
-
-                    inputs.forEach(input => {
-                        let name = input.name;
-                        let nameLower = name.toLowerCase();
-                        const existingValue = input.value;
-                        section_existing_value[nameLower] = existingValue;
-
-                    });
-                    //Generated values lower case
-                    for (key in value) {
-                        let keyLower = key.toLowerCase();
-                        value[keyLower] = value[key];
-                    }
-                    inputs.forEach(input => {
-                        let name = input.name;
-                        let nameLower = name.toLowerCase();
-
-                        if (nameLower in value) {
-                            input.value = value[nameLower];
-                            // Simulate user input
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    });
-
-
-                }
-                else {
-                    //Handle text, date, numbers, files etc.
-                    if (field?.type === "file") {
-                        const rtaContainer =  document.querySelector(`[data-target-selection-name="sfdc:RecordField.${field.apiName}"]`);
-                        if (rtaContainer) {
-                            const editableDiv = rtaContainer.querySelector('.ql-editor');
-                            if (editableDiv) {
-                                editableDiv.innerHTML = value; //'Your desired <b>rich</b> text content';
-                            }
-                        }
-                    }
-                    else {
-                        if (previousValue === null || previousValue === undefined || previousValue === '' || previousValue === false) {
-                            if (value === true || value === false) {
-                                field.element.checked = value;
-                            } else {
-                                if (field?.type === "date") {
-                                    //Handle Dates
-                                    const dateContainer = document.querySelector(`[data-target-selection-name="sfdc:RecordField.${field?.apiName}"]`);
-                                    const datePicker = dateContainer?.querySelector('lightning-datepicker') ?? null;
-                                    console.log('Ca date input for api name = ', field?.apiName);
-                                    const dateInputElement = document.getElementById(field?.id);
-
-
-                                    if (datePicker) {
-                                         // Format the date based on user locale
-                                        const userLocale = navigator.language || 'en-US'; // e.g., 'en-US'
-                                        const formattedDate = new Date(value).toLocaleDateString(userLocale);
-                                        dateInputElement.focus();
-                                        dateInputElement.value = formattedDate;
-
-                                        // Dispatch events to trigger LWC change handlers
-                                        dateInputElement.dispatchEvent(new Event('input', { bubbles: true }));
-                                        dateInputElement.dispatchEvent(new Event('change', { bubbles: true }));
-                                    }
-                                    if (dateInputElement) {
-                                        const formattedDate = new Date(value).toISOString().split('T')[0]; // Ensures ISO format
-                                        dateInputElement.focus(); // sometimes required to trigger internal formatting
-                                        dateInputElement.value = formattedDate;
-                                        // Dispatch events
-                                        dateInputElement.dispatchEvent(new Event('input', { bubbles: true }));
-                                        dateInputElement.dispatchEvent(new Event('change', { bubbles: true }));
-                                        //field.element.dispatchEvent(new Event('blur', { bubbles: true }));
-                                    }
-                                } else if (field?.type === "datetime") {
-                                    //Populate Date
-
-                                    //Populate Time
-                                } else {
-                                    field.element.value = value;
-                                    // Simulate user input
-                                    field.element.dispatchEvent(new Event('input', { bubbles: true }));
-                                    field.element.dispatchEvent(new Event('change', { bubbles: true }));
-                                }
-
-                            }
-
-
-                        }
-                    }
-                }
-            }
-        }
-
+function getAvailableObjects() {
+    const objects = new Set();
+    document.querySelectorAll('a[href*="/lightning/o/"]').forEach(link => {
+        const match = link.href.match(/\/lightning\/o\/([^\/]+)/);
+        if (match) objects.add(match[1]);
     });
+    return Array.from(objects);
 }
 
-
-/**
- * Fetch Gemini Data
- */
-async function fetchGeminiData(fieldNames) {
-    const API_KEY = "AIzaSyDJmSlrT7qztmzQ_Lov6tL25iWdlyIzHbI";
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
-
-    // Build a prompt that lists each field and its picklist options if available
-    const compoundFieldsMap = {};
-    const simpleFields = [];
-    const fieldDescriptions = [];
-
-    fieldNames.forEach(field => {
-        if (field.containsMultipleFields) {
-            if (!compoundFieldsMap[field.apiName]) {
-                compoundFieldsMap[field.apiName] = new Set();
-            }
-            compoundFieldsMap[field.apiName].add(field.name);
-        } else {
-            simpleFields.push(field);
-        }
+function getCurrentFormFields() {
+    const fields = [];
+    document.querySelectorAll('[data-target-selection-name*="RecordField"], lightning-input').forEach(field => {
+        const apiName = field.getAttribute('data-target-selection-name')?.replace('sfdc:RecordField.', '') ||
+                       field.getAttribute('data-field-name');
+        if (apiName) fields.push(apiName);
     });
-
-
-
-    // Handle compound fields
-    for (const [apiName, partsSet] of Object.entries(compoundFieldsMap)) {
-        const parts = Array.from(partsSet).join(', ');
-        fieldDescriptions.push(`${apiName}: return an object with keys like {${parts}}`);
-    }
-
-    // Handle simple fields
-    simpleFields.forEach(field => {
-        if (field.type === 'picklist' && field.options?.length) {
-            const validOptions = field.options.filter(opt => opt !== '--None--');
-            fieldDescriptions.push(`${field.apiName} (picklist): Options = ${validOptions.join(', ')}`);
-        } else if (field.type === 'time') {
-            fieldDescriptions.push(`${field.apiName} (time)`);
-        } else if (field.type === 'datetime') {
-            fieldDescriptions.push(`${field.apiName} (datetime)`);
-        } else {
-            fieldDescriptions.push(`${field.apiName}`);
-        }
-    });
-    //Create Time Options
-    const timeOptions = getTimeOptions();
-
-    const userMessage = `
-Make recommendations. Suggest realistic values for the following fields:
-
-${fieldDescriptions.join('\n')}
-
-Return output as a valid JSON object:
-- Use API names as keys.
-- For fields like BillingAddress or Name, return a nested object. Example:
-  "BillingAddress": {
-      "street": "123 Main St",
-      "city": "Los Angeles",
-      "state": "CA"
-  }
-
-Rules:
-- For picklist fields, only return from the listed options.
-- Do not include '--None--'.
-- For datetime fields, use format {date: "yyyy-mm-dd", time: "2:00 AM"}.
-- Use one of the following time options for time fields: ${timeOptions.join(', ')}.
-- The structure for api names is as objecApiName.fieldApiName. For eg Account.Amount, Opportunity.StageName. Do NOT modify this.
-- Return the JSON object.  For example Account {Account.Name: Acme Corp, Account.Amount: 5000}
-- Do not include any explanation or text. Return only the JSON object.
-`;
-
-    const requestBody = {
-        contents: [
-            {
-                role: "user",
-                parts: [
-                    {
-                        text: userMessage
-                    }
-                ]
-            }
-        ]
-    };
-    try {
-        const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
-        });
-        const data = await response.json();
-        if (response.status >= 200 && response.status < 300) {
-            if (!data.candidates || data.candidates.length === 0) {
-                throw new Error("FetchGeminiData: No AI response received.");
-            }
-            let rawResponse = data.candidates[0].content.parts[0].text;
-            let jsonString = rawResponse.replace(/```json|```/g, "").trim();
-            try {
-                let parsedData = JSON.parse(jsonString);
-                return parsedData;
-            } catch (error) {
-                throw new Error("FetchGeminiData: Failed to parse AI response.");
-            }
-        } else {
-            throw new Error(`FetchGeminiData: HTTP Error: ${response.status} - ${response.statusText}`);
-        }
-
-    } catch (ex) {
-        throw new Error("FetchGeminiData: Error while calling Gemini APIs ", ex?.message);
-    }
+    return fields;
 }
 
-/**
- * Get Time Options
- */
-function getTimeOptions() {
-    const options = [];
-    for (let hour = 0; hour < 24; hour++) {
-      for (let min = 0; min < 60; min += 15) {
-        const isPM = hour >= 12;
-        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-        const minStr = min.toString().padStart(2, '0');
-        const suffix = isPM ? 'PM' : 'AM';
-        options.push(`${hour12}:${minStr} ${suffix}`);
-      }
-    }
-    return options;
-}
-
-
-/**
- * Capture field values from UI
- */
-function captureFieldValuesFromUi() {
-    const inputs = document.querySelectorAll('input.slds-input, input, .textarea');
-    const data = {};
-    inputs.forEach(input => {
-        const name = input.name || input.id;
-        let value = null;
-        // Walk up the DOM tree to find a parent element with the `data-target-selection-name` attribute
-        let parent = input.closest('[data-target-selection-name]');
-        let apiField = parent ? parent.getAttribute('data-target-selection-name') : null;
-
-        if (apiField) {
-            let apiName = apiField.replace(/^sfdc:RecordField\./, '');
-            if (input.classList.contains('uiInput--lookup')) {
-                const pillTextEl = input.querySelector('.pillText');
-                const displayValue = pillTextEl?.innerText?.trim() || null;
-                value = displayValue;
-            } else if (input.type === 'checkbox') {
-                value = input.checked;
-            } else {
-                value = input.value;
-            }
-
-            // Include only non-lookup fields
-            data[apiName] = value;
-
-        }
-
-    });
-    return data;
-}
-
+console.log('✅ FIXED: Complete content script with proper related list detection and field extraction');
