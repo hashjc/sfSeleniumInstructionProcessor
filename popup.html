@@ -1,22 +1,242 @@
-<!--
-The actual HTML shown in the popup when clicking the extension icon.
--->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Salesforce Extension</title>
-  <style>
-    body { font-family: sans-serif; padding: 10px; width: 300px; }
-    textarea { width: 100%; height: 60px; }
-    button { margin-top: 10px; width: 100%; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salesforce Gemini Automation</title>
+    <style>
+        body {
+            width: 380px;
+            min-height: 300px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            margin: 0;
+            padding: 20px;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #4285f4;
+            font-weight: bold;
+        }
+        
+        .header .subtitle {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .gemini-badge {
+            background: linear-gradient(45deg, #4285f4, #34a853, #fbbc04, #ea4335);
+            background-size: 300% 300%;
+            animation: gradient 3s ease infinite;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .input-section {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        #userInput {
+            width: 100%;
+            height: 60px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+        
+        #userInput:focus {
+            border-color: #4285f4;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+        }
+        
+        #processBtn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(45deg, #4285f4, #34a853);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        #processBtn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+        
+        #processBtn:active {
+            transform: translateY(0);
+        }
+        
+        #output {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4285f4;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            min-height: 40px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .examples {
+            margin-top: 15px;
+            padding: 12px;
+            background: #e8f0fe;
+            border-radius: 8px;
+            border: 1px solid #dadce0;
+        }
+        
+        .examples-title {
+            font-weight: bold;
+            color: #1a73e8;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .example-item {
+            font-size: 11px;
+            color: #5f6368;
+            margin-bottom: 4px;
+            padding-left: 8px;
+            position: relative;
+        }
+        
+        .example-item:before {
+            content: "•";
+            color: #1a73e8;
+            position: absolute;
+            left: 0;
+        }
+        
+        .ai-info {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .ai-info-text {
+            font-size: 11px;
+            color: #37474f;
+            font-weight: 500;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4285f4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .success {
+            color: #34a853;
+        }
+        
+        .error {
+            color: #ea4335;
+        }
+    </style>
 </head>
 <body>
-  <h3>Enter Instruction</h3>
-  <textarea id="userInput" placeholder="Type instruction..."></textarea>
-  <button id="processBtn">Process</button>
-  <div id="output" style="margin-top: 10px;"></div>
-
-  <script src="popup.js"></script>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Salesforce AI Automation</h1>
+            <div class="subtitle">Natural Language → Custom Code</div>
+            <div class="gemini-badge">✨ POWERED BY Appsavio</div>
+        </div>
+        
+        <div class="input-section">
+            <label for="userInput">What would you like to automate?</label>
+            <textarea 
+                id="userInput" 
+                placeholder="Describe your automation in plain English...&#10;&#10;Example: 'Create an Account, then create a Contact for that Account'"
+            ></textarea>
+        </div>
+        
+        <button id="processBtn">🚀 Generate & Execute</button>
+        
+        <div id="output" style="display: none;"></div>
+        
+        <div class="examples">
+            <div class="examples-title">💡 Example Instructions:</div>
+            <div class="example-item">Create a new Account with sample data</div>
+            <div class="example-item">Create Account then Contact for that Account</div>
+            <div class="example-item">Create Account, Contact, and Opportunity</div>
+            <div class="example-item">Fill current form with realistic test data</div>
+            <div class="example-item">Create a Case and link it to existing Contact</div>
+        </div>
+        
+        <div class="ai-info">
+            <div class="ai-info-text">
+                🧠 Appsavio AI understands your intent and generates custom JavaScript automation code in real-time!
+            </div>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
 </body>
 </html>
