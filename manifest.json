@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Salesforce Automation 3",
+  "name": "Salesforce Automation",
   "version": "1.0",
   "description": "Execute Salesforce automation on the current page",
   "permissions": [
-    "tabs",
-    "activeTab",
+    "tabs", 
+    "activeTab", 
     "scripting",
     "storage"
   ],
@@ -13,31 +13,49 @@
     "https://generativelanguage.googleapis.com/*",
     "https://*.salesforce.com/*",
     "https://*.force.com/*",
-    "https://login.salesforce.com/*"
+    "https://login.salesforce.com/*",
+    "https://*.lightning.force.com/*"
   ],
-
-  "action": {
-    "default_popup": "popup.html",
-    "default_title": "Salesforce Automation 3"
-  },
-
+  
+ 
+  
   "background": {
     "service_worker": "background.js"
   },
-
+  
   "content_scripts": [
     {
       "matches": [
         "https://*.salesforce.com/*",
         "https://*.force.com/*",
-        "https://*.lightning.force.com/*"
+        "https://*.lightning.force.com/*",
+        "https://my.salesforce.com/*"
       ],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js"],
+      "matches": [
+        "https://*.salesforce.com/*",
+        "https://*.force.com/*",
+        "https://*.lightning.force.com/*"
+      ]
     }
   ],
 
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Salesforce Gemini Automation"
+   
+  },
+  
+
+  
+  
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; script-src-elem 'self';"
   }
 }
