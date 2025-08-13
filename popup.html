@@ -1,629 +1,417 @@
-// HYBRID POPUP SCRIPT - Automation + Intelligent Autofill Interface
-console.log("🚀 HYBRID POPUP: Advanced automation + autofill interface starting...");
-
-let automationInProgress = false;
-
-document.addEventListener("DOMContentLoaded", function() {
-    console.log("🚀 HYBRID POPUP: DOM loaded, initializing hybrid interface...");
-    
-    setupHybridEventListeners();
-    testHybridBackgroundConnection();
-    setupHybridQuickActions();
-    updateInterfaceForCurrentPage();
-});
-
-function setupHybridEventListeners() {
-    console.log("⚡ HYBRID SETUP: Adding hybrid event listeners...");
-    
-    const processBtn = document.getElementById("processBtn");
-    if (processBtn) {
-        processBtn.addEventListener("click", handleHybridProcessClick);
-        console.log("⚡ HYBRID SETUP: Process button listener added");
-    } else {
-        console.error("⚡ HYBRID SETUP: ❌ Process button not found");
-    }
-
-    const userInput = document.getElementById("userInput");
-    if (userInput) {
-        userInput.addEventListener("keypress", function(event) {
-            if (event.key === "Enter" && event.ctrlKey) {
-                event.preventDefault();
-                if (!automationInProgress) {
-                    handleHybridProcessClick();
-                }
-            }
-        });
-        
-        // Enhanced placeholder for hybrid functionality
-        userInput.placeholder = `🚀 Describe what you want to create or autofill:
-
-AUTOMATION EXAMPLES:
-• "Create a new Account for technology company"
-• "Create Account and related Contact"
-• "Navigate to Contact and create new record"
-
-AUTOFILL EXAMPLES:
-• "Fill this form with realistic data"
-• "Autofill all fields for healthcare company"
-• "Complete this form with manufacturing data"
-
-Gemini will either execute automation OR intelligently autofill current form!`;
-        
-        console.log("⚡ HYBRID SETUP: Input listener added");
-    }
-}
-
-function setupHybridQuickActions() {
-    const quickActions = [
-        {
-            emoji: "🏢➕👤",
-            title: "Account + Contact",
-            description: "Create Account then related Contact",
-            instruction: "Create a new Account for a technology company and then create a related Contact"
-        },
-        {
-            emoji: "🏢➕💼",
-            title: "Account + Opportunity", 
-            description: "Create Account then related Opportunity",
-            instruction: "Create a new Account for a business company and then create a related Opportunity"
-        },
-        {
-            emoji: "👤➕💼",
-            title: "Contact + Opportunity",
-            description: "Create Contact then related Opportunity", 
-            instruction: "Create a new Contact for a professional person and then create a related Opportunity"
-        },
-        {
-            emoji: "✨", 
-            title: "Smart Autofill Form",
-            description: "Fill current form intelligently",
-            instruction: "Analyze this form and fill all fields with intelligent, realistic business data appropriate for the form type"
-        },
-        {
-            emoji: "🏢",
-            title: "Single Account", 
-            description: "Create Account only",
-            instruction: "Create a technology company Account with complete business information"
-        },
-        {
-            emoji: "👤",
-            title: "Single Contact",
-            description: "Create Contact only", 
-            instruction: "Create a professional Contact with complete personal and business details"
-        },
-        {
-            emoji: "💼",
-            title: "Single Opportunity",
-            description: "Create Opportunity only",
-            instruction: "Create a sales Opportunity with complete deal information"
-        },
-        {
-            emoji: "🎯",
-            title: "Lead Generation",
-            description: "Create Lead record",
-            instruction: "Create a new Lead for potential customer with complete qualification details"
-        },
-        {
-            emoji: "📋➕👤",
-            title: "Lead + Task",
-            description: "Create Lead then related Task",
-            instruction: "Create a new Lead for business prospect and then create a related follow-up Task"
-        },
-        {
-            emoji: "🆘➕📞",
-            title: "Account + Case", 
-            description: "Create Account then related Case",
-            instruction: "Create a customer Account and then create a related support Case"
-        },
-        {
-            emoji: "🏥",
-            title: "Healthcare Account + Contact",
-            description: "Healthcare industry workflow",
-            instruction: "Create a healthcare organization Account with medical services focus and then create a related healthcare Contact"
-        },
-        {
-            emoji: "🏭",
-            title: "Manufacturing Account + Opportunity",
-            description: "Manufacturing industry workflow", 
-            instruction: "Create a manufacturing company Account with industrial focus and then create a related manufacturing Opportunity"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            width: 480px;
+            min-height: 620px;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         }
-    ];
-    
-    const quickActionsContainer = document.querySelector('.quick-actions, #quickActions');
-    if (quickActionsContainer) {
-        quickActionsContainer.innerHTML = '';
-        quickActionsContainer.style.display = 'grid';
-        quickActionsContainer.style.gridTemplateColumns = 'repeat(3, 1fr)'; // 3 columns for more actions
-        quickActionsContainer.style.gap = '8px';
-        quickActionsContainer.style.marginBottom = '20px';
-        quickActionsContainer.style.maxHeight = '300px';
-        quickActionsContainer.style.overflowY = 'auto';
         
-        quickActions.forEach((action, index) => {
-            const actionCard = document.createElement('div');
-            actionCard.className = 'hybrid-quick-action-card';
-            actionCard.style.cssText = `
-                background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-                border: 2px solid #dee2e6;
-                border-radius: 8px;
-                padding: 10px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                text-align: center;
-                position: relative;
-                overflow: hidden;
-                min-height: 70px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            `;
-            
-            // Special styling for parent-child workflows
-            if (action.instruction.includes('related') || action.instruction.includes('then')) {
-                actionCard.style.border = '2px solid #28a745';
-                actionCard.style.background = 'linear-gradient(135deg, #d4edda, #c3e6cb)';
-            }
-            
-            actionCard.innerHTML = `
-                <div style="font-size: 18px; margin-bottom: 4px;">${action.emoji}</div>
-                <div style="font-weight: 600; margin-bottom: 2px; color: #495057; font-size: 11px; line-height: 1.2;">${action.title}</div>
-                <div style="font-size: 9px; color: #6c757d; line-height: 1.2;">${action.description}</div>
-            `;
-            
-            actionCard.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-2px)';
-                this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
-                if (action.instruction.includes('related') || action.instruction.includes('then')) {
-                    this.style.borderColor = '#28a745';
-                    this.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-                } else {
-                    this.style.borderColor = '#667eea';
-                    this.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
-                }
-                this.style.color = 'white';
-                this.querySelectorAll('div').forEach(div => div.style.color = 'white');
-            });
-            
-            actionCard.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0)';
-                this.style.boxShadow = 'none';
-                if (action.instruction.includes('related') || action.instruction.includes('then')) {
-                    this.style.borderColor = '#28a745';
-                    this.style.background = 'linear-gradient(135deg, #d4edda, #c3e6cb)';
-                } else {
-                    this.style.borderColor = '#dee2e6';
-                    this.style.background = 'linear-gradient(135deg, #f8f9fa, #e9ecef)';
-                }
-                this.style.color = '';
-                this.querySelectorAll('div')[1].style.color = '#495057';
-                this.querySelectorAll('div')[2].style.color = '#6c757d';
-            });
-            
-            actionCard.addEventListener('click', function() {
-                if (!automationInProgress) {
-                    document.getElementById('userInput').value = action.instruction;
-                    
-                    // Enhanced visual feedback for parent-child workflows
-                    if (action.instruction.includes('related') || action.instruction.includes('then')) {
-                        this.style.background = '#28a745';
-                        this.innerHTML = `
-                            <div style="font-size: 20px; margin-bottom: 6px;">🔗</div>
-                            <div style="font-weight: 600; color: white;">Parent-Child Workflow</div>
-                            <div style="font-size: 10px; color: white;">Processing...</div>
-                        `;
-                    } else {
-                        this.style.background = '#007bff';
-                        this.innerHTML = `
-                            <div style="font-size: 20px; margin-bottom: 6px;">⚡</div>
-                            <div style="font-weight: 600; color: white;">Processing...</div>
-                        `;
-                    }
-                    
-                    setTimeout(() => {
-                        handleHybridProcessClick();
-                    }, 500);
-                }
-            });
-            
-            quickActionsContainer.appendChild(actionCard);
-        });
-        
-        console.log("⚡ HYBRID SETUP: Enhanced quick actions with parent-child workflows configured");
-    }
-}
-
-async function testHybridBackgroundConnection() {
-    console.log("🔗 HYBRID TEST: Testing background connection...");
-    
-    try {
-        const response = await sendHybridMessage({ type: "getStatus" });
-        console.log("🔗 HYBRID TEST: ✅ Background responded:", response);
-        updateHybridStatus("✅ Hybrid Gemini AI ready - Automation + Autofill available", "success");
-    } catch (error) {
-        console.error("🔗 HYBRID TEST: ❌ Background connection failed:", error);
-        updateHybridStatus("❌ Background script error - Reload extension", "error");
-    }
-}
-
-async function updateInterfaceForCurrentPage() {
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const url = tab.url;
-        
-        const statusElement = document.getElementById('pageStatus');
-        if (statusElement) {
-            if (url.includes('salesforce.com') || url.includes('force.com') || url.includes('.lightning.force.com')) {
-                if (url.includes('/new') || url.includes('/edit')) {
-                    statusElement.innerHTML = '🎯 <strong>Form Detected!</strong> Ready for intelligent autofill or automation';
-                    statusElement.style.color = '#28a745';
-                    statusElement.style.background = '#e6ffe6';
-                } else if (url.includes('/list')) {
-                    statusElement.innerHTML = '📋 <strong>List View</strong> - Ready to create new records';
-                    statusElement.style.color = '#007bff';
-                    statusElement.style.background = '#e6f3ff';
-                } else {
-                    statusElement.innerHTML = '🏠 <strong>Salesforce Home</strong> - Use automation to navigate and create';
-                    statusElement.style.color = '#6f42c1';
-                    statusElement.style.background = '#f3e5f5';
-                }
-            } else {
-                statusElement.innerHTML = '⚠️ Please navigate to a Salesforce org first';
-                statusElement.style.color = '#ffc107';
-                statusElement.style.background = '#fff9e6';
-            }
-            statusElement.style.padding = '10px 12px';
-            statusElement.style.borderRadius = '8px';
-            statusElement.style.marginBottom = '15px';
-            statusElement.style.fontSize = '12px';
-            statusElement.style.fontWeight = '500';
-            statusElement.style.border = '2px solid';
-            statusElement.style.borderColor = statusElement.style.color;
+        h1 {
+            text-align: center;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 22px;
+            font-weight: 700;
         }
-    } catch (error) {
-        console.log("Could not update interface for current page:", error);
-    }
-}
-
-async function handleHybridProcessClick() {
-    console.log("🚀 HYBRID PROCESS: Button clicked");
-    
-    const instruction = document.getElementById("userInput").value.trim();
-    console.log("🚀 HYBRID PROCESS: Instruction:", instruction);
-
-    if (!instruction) {
-        alert("Please enter an instruction for Gemini AI automation or autofill");
-        return;
-    }
-
-    if (automationInProgress) {
-        alert("Hybrid automation already in progress");
-        return;
-    }
-
-    // Validate Salesforce environment
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = tab.url;
-    const isSalesforce = url.includes('salesforce.com') || 
-                        url.includes('force.com') || 
-                        url.includes('.lightning.force.com');
-
-    if (!isSalesforce) {
-        alert("Please navigate to a Salesforce org first");
-        return;
-    }
-
-    try {
-        automationInProgress = true;
-        disableHybridControls();
-        showHybridStatusPanel();
-        updateHybridStatus("🧠 Gemini AI: Analyzing instruction and page context...", "processing");
-        updateHybridProgress(10);
-
-        console.log("🚀 HYBRID PROCESS: Getting page context...");
-        updateHybridStatus("🔍 Analyzing current Salesforce page...", "processing");
-        updateHybridProgress(30);
         
-        const pageContext = await getHybridPageContext(tab.id);
-        console.log("🚀 HYBRID PROCESS: Page context:", pageContext);
-
-        updateHybridStatus("🤖 Gemini AI: Determining automation strategy...", "processing");
-        updateHybridProgress(50);
-
-        const result = await sendHybridMessage({
-            action: 'executeDynamicAIAutomation',
-            data: { 
-                instruction: instruction,
-                pageContext: pageContext,
-                tabId: tab.id,
-                timestamp: Date.now()
-            }
-        });
-
-        console.log("🚀 HYBRID PROCESS: Result:", result);
-
-        if (result && result.success) {
-            if (result.data.type === 'autofill_only') {
-                updateHybridStatus("✨ Intelligent autofill completed successfully!", "success");
-                updateHybridProgress(100);
-                updateHybridStepCounter(result.data.fieldsFilled, result.data.fieldsAnalyzed);
-                
-                setTimeout(() => {
-                    resetHybridState();
-                }, 3000);
-                
-            } else {
-                updateHybridStatus("🚀 Executing automation workflow...", "processing");
-                updateHybridProgress(80);
-                
-                setTimeout(() => {
-                    updateHybridStatus(`🎯 Running ${result.data.instructionsCount} automation steps...`, "processing");
-                    updateHybridProgress(95);
-                }, 2000);
-            }
-            
-        } else {
-            throw new Error(result?.error || 'Hybrid automation generation failed');
+        .subtitle {
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+            margin-bottom: 20px;
+            font-style: italic;
         }
-
-    } catch (error) {
-        console.error("🚀 HYBRID PROCESS: ❌ Error:", error);
-        updateHybridStatus(`❌ Error: ${error.message}`, "error");
-        showHybridNotification(`Error: ${error.message}`, "error");
-        resetHybridState();
-    }
-}
-
-async function getHybridPageContext(tabId) {
-    console.log("🔍 HYBRID CONTEXT: Getting page context for tab:", tabId);
-    
-    try {
-        const result = await new Promise((resolve, reject) => {
-            chrome.scripting.executeScript({
-                target: { tabId: tabId },
-                func: () => {
-                    return {
-                        url: window.location.href,
-                        title: document.title,
-                        isLoggedIn: !document.querySelector('.loginContainer, .login'),
-                        hasForm: !!document.querySelector('.recordEditContainer, .slds-form, lightning-record-edit-form, form'),
-                        isNewPage: window.location.href.includes('/new'),
-                        isEditPage: window.location.href.includes('/edit'),
-                        isListPage: window.location.href.includes('/list'),
-                        isHomePage: window.location.href.includes('/home'),
-                        formFieldCount: document.querySelectorAll('input:not([type="hidden"]), textarea, select').length,
-                        timestamp: new Date().toISOString()
-                    };
-                }
-            }, (result) => {
-                if (chrome.runtime.lastError) {
-                    reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                    resolve(result[0].result);
-                }
-            });
-        });
         
-        console.log("🔍 HYBRID CONTEXT: ✅ Context retrieved");
-        return result;
+        #pageStatus {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            border: 2px solid;
+            transition: all 0.3s ease;
+        }
         
-    } catch (error) {
-        console.error("🔍 HYBRID CONTEXT: ❌ Failed:", error);
-        return {
-            url: 'Unknown',
-            title: 'Salesforce',
-            isLoggedIn: true,
-            hasForm: false,
-            timestamp: new Date().toISOString()
-        };
-    }
-}
-
-async function sendHybridMessage(message, retries = 3) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await new Promise((resolve, reject) => {
-                chrome.runtime.sendMessage(message, (response) => {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error(chrome.runtime.lastError.message));
-                    } else {
-                        resolve(response);
-                    }
-                });
-            });
-        } catch (error) {
-            console.error(`📤 HYBRID MESSAGE: Attempt ${i + 1} failed:`, error);
-            if (i === retries - 1) throw error;
-            await sleep(1000);
+        .feature-tabs {
+            display: flex;
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
         }
-    }
-}
-
-function disableHybridControls() {
-    const processBtn = document.getElementById("processBtn");
-    if (processBtn) {
-        processBtn.disabled = true;
-        processBtn.textContent = "🧠 Processing...";
-        processBtn.style.opacity = "0.7";
-    }
-    
-    const userInput = document.getElementById("userInput");
-    if (userInput) {
-        userInput.disabled = true;
-        userInput.style.opacity = "0.7";
-    }
-    
-    const quickCards = document.querySelectorAll('.hybrid-quick-action-card');
-    quickCards.forEach(card => {
-        card.style.opacity = "0.5";
-        card.style.pointerEvents = "none";
-    });
-    
-    console.log("🔒 HYBRID CONTROLS: Disabled");
-}
-
-function enableHybridControls() {
-    const processBtn = document.getElementById("processBtn");
-    if (processBtn) {
-        processBtn.disabled = false;
-        processBtn.textContent = "🚀 Execute Automation or Autofill";
-        processBtn.style.opacity = "1";
-    }
-    
-    const userInput = document.getElementById("userInput");
-    if (userInput) {
-        userInput.disabled = false;
-        userInput.style.opacity = "1";
-    }
-    
-    const quickCards = document.querySelectorAll('.hybrid-quick-action-card');
-    quickCards.forEach(card => {
-        card.style.opacity = "1";
-        card.style.pointerEvents = "auto";
-    });
-    
-    console.log("🔓 HYBRID CONTROLS: Enabled");
-}
-
-function showHybridStatusPanel() {
-    const statusPanel = document.getElementById('advancedStatusPanel');
-    if (statusPanel) {
-        statusPanel.style.display = 'block';
-    }
-}
-
-function hideHybridStatusPanel() {
-    const statusPanel = document.getElementById('advancedStatusPanel');
-    if (statusPanel) {
-        statusPanel.style.display = 'none';
-    }
-}
-
-function updateHybridStatus(message, type = 'info') {
-    console.log("📊 HYBRID STATUS:", message);
-    
-    const statusMessage = document.getElementById('statusMessage');
-    const statusIcon = document.getElementById('statusIcon');
-    
-    if (statusMessage) {
-        statusMessage.textContent = message;
         
-        switch (type) {
-            case 'success':
-                statusMessage.style.color = '#28a745';
-                if (statusIcon) statusIcon.textContent = '✅';
-                break;
-            case 'error':
-                statusMessage.style.color = '#dc3545';
-                if (statusIcon) statusIcon.textContent = '❌';
-                break;
-            case 'processing':
-                statusMessage.style.color = '#007bff';
-                if (statusIcon) statusIcon.textContent = '🧠';
-                break;
-            default:
-                statusMessage.style.color = '#6c757d';
-                if (statusIcon) statusIcon.textContent = '🚀';
+        .feature-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #6c757d;
         }
-    }
-}
-
-function updateHybridProgress(percentage) {
-    const progressFill = document.getElementById('progressFill');
-    if (progressFill) {
-        progressFill.style.width = Math.min(percentage, 100) + '%';
-    }
-}
-
-function updateHybridStepCounter(step, total) {
-    const stepCounter = document.getElementById('stepCounter');
-    if (stepCounter) {
-        if (total > 0) {
-            stepCounter.textContent = `Completed ${step} of ${total} fields`;
-        } else {
-            stepCounter.textContent = `Step ${step} completed`;
+        
+        .feature-tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
-    }
-}
-
-function showHybridNotification(message, type = 'info') {
-    if (type === 'error') {
-        alert('Error: ' + message);
-    } else {
-        console.log('HYBRID NOTIFICATION:', message);
-    }
-}
-
-function resetHybridState() {
-    console.log("🔄 HYBRID RESET: Resetting state");
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .hybrid-quick-action-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hybrid-quick-action-card:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .hybrid-quick-action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .hybrid-quick-action-card:hover::before {
+            left: 100%;
+        }
+        
+        #userInput {
+            width: 100%;
+            min-height: 130px;
+            padding: 16px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 18px;
+            box-sizing: border-box;
+            line-height: 1.5;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        #userInput:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        #processBtn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #processBtn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.6s ease;
+        }
+        
+        #processBtn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        
+        #processBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        #processBtn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #advancedStatusPanel {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 18px;
+            display: none;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        #progressBar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        #progressBar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+                        linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+                        linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            animation: progressStripes 1s linear infinite;
+        }
+        
+        #progressFill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 5px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @keyframes progressStripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 0; }
+        }
+        
+        .status-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        #statusIcon {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes statusPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        #statusMessage {
+            flex: 1;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        
+        #stepCounter {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .capabilities-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .capability-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .capability-card h4 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .capability-card ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            font-size: 11px;
+            color: #6c757d;
+            line-height: 1.4;
+        }
+        
+        .capability-card li {
+            margin-bottom: 4px;
+            position: relative;
+            padding-left: 15px;
+        }
+        
+        .capability-card li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .mode-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: 600;
+        }
+        
+        .tips-footer {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border: 1px solid #e1bee7;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .tips-footer h4 {
+            margin: 0 0 8px 0;
+            color: #4a148c;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .tips-footer p {
+            margin: 0;
+            font-size: 11px;
+            color: #6a1b9a;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Hybrid Salesforce Automation</h1>
+    <div class="subtitle">Automation + Intelligent Autofill Powered by Gemini AI</div>
     
-    automationInProgress = false;
-    enableHybridControls();
-    updateHybridProgress(0);
-    updateHybridStatus("🚀 Ready for automation or intelligent autofill", "info");
+    <div id="pageStatus"></div>
     
-    setTimeout(() => {
-        hideHybridStatusPanel();
-    }, 3000);
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log("📨 HYBRID MESSAGE: Received:", message);
+    <div class="feature-tabs">
+        <div class="feature-tab active">🚀 Full Automation</div>
+        <div class="feature-tab">✨ Smart Autofill</div>
+    </div>
     
-    switch (message.type) {
-        case 'AUTOMATION_COMPLETE':
-            console.log("🎉 HYBRID COMPLETE: Automation finished");
-            const completionInfo = message.fieldsCompleted ? 
-                ` (${message.fieldsCompleted}/${message.totalFields} fields)` : '';
-            updateHybridStatus(`🎉 Hybrid automation completed successfully!${completionInfo}`, "success");
-            updateHybridProgress(100);
-            resetHybridState();
-            showHybridNotification("Hybrid automation completed successfully!", "success");
-            break;
-            
-        case 'AUTOMATION_ERROR':
-            console.error("💥 HYBRID ERROR: Automation failed:", message.error);
-            updateHybridStatus(`❌ Error: ${message.error}`, "error");
-            showHybridNotification(`Automation failed: ${message.error}`, "error");
-            resetHybridState();
-            break;
-            
-        case 'statusUpdate':
-            if (message.message && automationInProgress) {
-                updateHybridStatus(message.message, "processing");
-                
-                // Update progress based on status message keywords
-                if (message.message.includes('Analyzing')) {
-                    updateHybridProgress(40);
-                } else if (message.message.includes('Generating')) {
-                    updateHybridProgress(70);
-                } else if (message.message.includes('Executing') || message.message.includes('Filling')) {
-                    updateHybridProgress(90);
-                }
-            }
-            break;
-    }
-});
-
-// Global error handling
-window.addEventListener('error', function(event) {
-    console.error('🚨 HYBRID GLOBAL ERROR:', event.error);
-    if (automationInProgress) {
-        updateHybridStatus('❌ Unexpected error occurred', "error");
-        resetHybridState();
-    }
-});
-
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('🚨 HYBRID UNHANDLED REJECTION:', event.reason);
-    if (automationInProgress) {
-        updateHybridStatus('❌ Promise rejection error', "error");
-        resetHybridState();
-    }
-});
-
-console.log("🚀 HYBRID POPUP: ✅ Advanced hybrid interface loaded successfully");
+    <div class="quick-actions">
+        <!-- Quick action cards will be dynamically populated by JavaScript -->
+    </div>
+    
+    <textarea id="userInput" placeholder="🚀 Describe what you want to create or autofill..."></textarea>
+    
+    <button id="processBtn">🚀 Execute Automation or Autofill</button>
+    
+    <div id="advancedStatusPanel">
+        <div class="status-row">
+            <div id="statusIcon">🚀</div>
+            <div style="font-weight: 600; color: #333;">Hybrid Automation Status</div>
+        </div>
+        <div id="statusMessage">Ready for automation or intelligent autofill</div>
+        <div id="progressBar">
+            <div id="progressFill"></div>
+        </div>
+        <div id="stepCounter">Ready to start</div>
+    </div>
+    
+    <div class="capabilities-grid">
+        <div class="capability-card">
+            <div class="mode-indicator">AUTO</div>
+            <h4>🚀 Full Automation</h4>
+            <ul>
+                <li>Navigate to objects</li>
+                <li>Create records</li>
+                <li>Fill forms intelligently</li>
+                <li>Handle relationships</li>
+                <li>Complete workflows</li>
+            </ul>
+        </div>
+        <div class="capability-card">
+            <div class="mode-indicator">SMART</div>
+            <h4>✨ Intelligent Autofill</h4>
+            <ul>
+                <li>Analyze all form fields</li>
+                <li>Generate unique data</li>
+                <li>Fill fields automatically</li>
+                <li>Context-aware content</li>
+                <li>Professional data</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="tips-footer">
+        <h4>💡 How It Works</h4>
+        <p>Gemini AI automatically detects whether you need full automation (navigation + creation) or just intelligent autofill for the current form. Simply describe what you want, and let AI handle the rest!</p>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
