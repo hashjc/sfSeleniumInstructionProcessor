@@ -1,22 +1,924 @@
-<!--
-The actual HTML shown in the popup when clicking the extension icon.
--->
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Salesforce Extension</title>
-  <style>
-    body { font-family: sans-serif; padding: 10px; width: 300px; }
-    textarea { width: 100%; height: 60px; }
-    button { margin-top: 10px; width: 100%; }
-  </style>
+    <meta charset="utf-8">
+    <style>
+        body {
+            width: 480px;
+            min-height: 620px;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        
+        #pageStatus {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            border: 2px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-tabs {
+            display: flex;
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #6c757d;
+        }
+        
+        .feature-tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .input-method-selector {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .input-method-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: #6c757d;
+        }
+
+        .input-method-tab.active {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .file-upload-container {
+            display: none;
+            background: white;
+            border: 2px dashed #28a745;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .file-upload-container.dragover {
+            border-color: #20c997;
+            background: #f8fff9;
+            transform: scale(1.02);
+        }
+
+        .file-upload-container.active {
+            display: block;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: block;
+            cursor: pointer;
+            padding: 15px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #e8f5e8, #f0fff0);
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-label:hover {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .file-upload-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .file-info {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .file-preview {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            display: none;
+        }
+
+        .file-preview.show {
+            display: block;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .hybrid-quick-action-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hybrid-quick-action-card:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .hybrid-quick-action-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .hybrid-quick-action-card:hover::before {
+            left: 100%;
+        }
+        
+        #userInput {
+            width: 100%;
+            min-height: 130px;
+            padding: 16px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            font-size: 13px;
+            font-family: inherit;
+            resize: vertical;
+            margin-bottom: 18px;
+            box-sizing: border-box;
+            line-height: 1.5;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .text-input-container {
+            display: block;
+        }
+
+        .text-input-container.hidden {
+            display: none;
+        }
+        
+        #userInput:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        #processBtn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #processBtn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.6s ease;
+        }
+        
+        #processBtn:hover:not(:disabled)::before {
+            left: 100%;
+        }
+        
+        #processBtn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        #processBtn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* LOGGING SYSTEM STYLES */
+        .logging-section {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 18px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .logging-section:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+        }
+
+        .logging-section h3 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+        }
+
+        .logging-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .logging-btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logging-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .logging-btn:hover::before {
+            left: 100%;
+        }
+
+        .logging-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        #exportLogs {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
+        }
+
+        #exportLogs:hover {
+            box-shadow: 0 4px 15px rgba(23, 162, 184, 0.4);
+        }
+
+        #viewLogSummary {
+            background: linear-gradient(135deg, #6f42c1, #563d7c);
+            color: white;
+            box-shadow: 0 2px 8px rgba(111, 66, 193, 0.3);
+        }
+
+        #viewLogSummary:hover {
+            box-shadow: 0 4px 15px rgba(111, 66, 193, 0.4);
+        }
+
+        #clearLogs {
+            background: linear-gradient(135deg, #ffc107, #e0a800);
+            color: #212529;
+            box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        }
+
+        #clearLogs:hover {
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+        }
+
+        #logSummary {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #495057;
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        #logSummary.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #summaryContent {
+            font-family: 'Segoe UI', monospace;
+        }
+
+        #summaryContent strong {
+            color: #343a40;
+        }
+
+        .logging-info {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border: 1px solid #e1bee7;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 11px;
+            color: #4a148c;
+            line-height: 1.4;
+        }
+
+        .logging-info h4 {
+            margin: 0 0 8px 0;
+            color: #4a148c;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .logging-info p {
+            margin: 4px 0;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: white;
+            font-weight: 600;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            max-width: 300px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+        }
+        
+        #advancedStatusPanel {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 18px;
+            display: none;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        #progressBar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        #progressBar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%), 
+                        linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #f0f0f0 75%), 
+                        linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            animation: progressStripes 1s linear infinite;
+        }
+        
+        #progressFill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 5px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @keyframes progressStripes {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 0; }
+        }
+        
+        .status-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        #statusIcon {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: statusPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes statusPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        #statusMessage {
+            flex: 1;
+            font-size: 14px;
+            color: #555;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        
+        #stepCounter {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 10px;
+            font-style: italic;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .capabilities-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .capability-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .capability-card h4 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .capability-card ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            font-size: 11px;
+            color: #6c757d;
+            line-height: 1.4;
+        }
+        
+        .capability-card li {
+            margin-bottom: 4px;
+            position: relative;
+            padding-left: 15px;
+        }
+        
+        .capability-card li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .mode-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 8px;
+            font-weight: 600;
+        }
+        
+        .tips-footer {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border: 1px solid #e1bee7;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .tips-footer h4 {
+            margin: 0 0 8px 0;
+            color: #4a148c;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .tips-footer p {
+            margin: 0;
+            font-size: 11px;
+            color: #6a1b9a;
+            line-height: 1.4;
+        }
+
+        .clear-file-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .clear-file-btn:hover {
+            background: #c82333;
+        }
+    </style>
 </head>
 <body>
-  <h3>Enter Instruction</h3>
-  <textarea id="userInput" placeholder="Type instruction..."></textarea>
-  <button id="processBtn">Process</button>
-  <div id="output" style="margin-top: 10px;"></div>
+    <h1>🚀 Hybrid Salesforce Automation</h1>
+    <div class="subtitle">Automation + Intelligent Autofill Powered by Gemini AI</div>
+    
+    <div id="pageStatus"></div>
+    
+    <div class="feature-tabs">
+        <div class="feature-tab active">🚀 Full Automation</div>
+        <div class="feature-tab">✨ Smart Autofill</div>
+    </div>
 
-  <script src="popup.js"></script>
+    <div class="input-method-selector">
+        <div class="input-method-tab active" data-method="text">📝 Text Input</div>
+        <div class="input-method-tab" data-method="file">📁 File Upload</div>
+    </div>
+
+    <div class="file-upload-container" id="fileUploadContainer">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" />
+        <label for="fileInput" class="file-upload-label">
+            <div class="file-upload-icon">📁</div>
+            <div style="font-weight: 600; margin-bottom: 8px;">Upload Instructions File</div>
+            <div style="font-size: 11px; color: #6c757d; margin-bottom: 8px;">
+                Click to browse or drag & drop
+            </div>
+            <div style="font-size: 10px; color: #28a745;">
+                Supports: CSV, Excel (.xlsx, .xls)
+            </div>
+        </label>
+        
+        <div class="file-info" id="fileInfo">
+            <div style="font-weight: 600; margin-bottom: 5px;">📄 File Loaded:</div>
+            <div id="fileName" style="font-size: 12px; color: #495057; margin-bottom: 5px;"></div>
+            <div id="fileDetails" style="font-size: 11px; color: #6c757d;"></div>
+            <button class="clear-file-btn" id="clearFileBtn">✕ Clear</button>
+        </div>
+
+        <div class="file-preview" id="filePreview">
+            <div style="font-weight: 600; margin-bottom: 8px; color: #495057;">📋 Instructions Found:</div>
+            <div id="previewContent"></div>
+        </div>
+    </div>
+    
+    <div class="quick-actions">
+        <!-- Quick action cards will be dynamically populated by JavaScript -->
+    </div>
+
+    <div class="text-input-container" id="textInputContainer">
+        <textarea id="userInput" placeholder="🚀 Describe what you want to create or autofill..."></textarea>
+    </div>
+    
+    <button id="processBtn">🚀 Execute Automation or Autofill</button>
+    
+    <!-- LOGGING SYSTEM SECTION -->
+    <div class="logging-section">
+        <h3>📊 Comprehensive Logging System</h3>
+        
+        <div class="logging-buttons">
+            <button id="exportLogs" class="logging-btn">📄 Export Logs</button>
+            <button id="viewLogSummary" class="logging-btn">📈 View Summary</button>
+            <button id="clearLogs" class="logging-btn">🗑️ Clear Old Logs</button>
+        </div>
+        
+        <div id="logSummary">
+            <div id="summaryContent"></div>
+        </div>
+        
+        <div class="logging-info">
+            <h4>💡 Logging Features</h4>
+            <p><strong>Auto-Export:</strong> Logs automatically save when automation completes</p>
+            <p><strong>File Location:</strong> Downloads folder as timestamped JSON files</p>
+            <p><strong>Data Captured:</strong> Console logs, API responses, form analysis, generated data, errors, session tracking</p>
+            <p><strong>Session Tracking:</strong> Each automation run gets a unique session with full context</p>
+            <p><strong>Real-time:</strong> All console output and events are captured in real-time</p>
+        </div>
+    </div>
+    
+    <div id="advancedStatusPanel">
+        <div class="status-row">
+            <div id="statusIcon">🚀</div>
+            <div style="font-weight: 600; color: #333;">Hybrid Automation Status</div>
+        </div>
+        <div id="statusMessage">Ready for automation or intelligent autofill</div>
+        <div id="progressBar">
+            <div id="progressFill"></div>
+        </div>
+        <div id="stepCounter">Ready to start</div>
+    </div>
+    
+    <div class="capabilities-grid">
+        <div class="capability-card">
+            <div class="mode-indicator">AUTO</div>
+            <h4>🚀 Full Automation</h4>
+            <ul>
+                <li>Navigate to objects</li>
+                <li>Create records</li>
+                <li>Fill forms intelligently</li>
+                <li>Handle relationships</li>
+                <li>Complete workflows</li>
+            </ul>
+        </div>
+        <div class="capability-card">
+            <div class="mode-indicator">SMART</div>
+            <h4>✨ Intelligent Autofill</h4>
+            <ul>
+                <li>Analyze all form fields</li>
+                <li>Generate unique data</li>
+                <li>Fill fields automatically</li>
+                <li>Context-aware content</li>
+                <li>Professional data</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="tips-footer">
+        <h4>💡 How It Works</h4>
+        <p>Upload a CSV/Excel file with instructions or type directly. Gemini AI automatically detects whether you need full automation (navigation + creation) or just intelligent autofill for the current form!</p>
+    </div>
+    
+    <script src="popup.js"></script>
+    
+    <script>
+        // LOGGING SYSTEM JAVASCRIPT
+        document.addEventListener('DOMContentLoaded', function() {
+            // Export logs manually
+            document.getElementById('exportLogs').addEventListener('click', function() {
+                this.style.opacity = '0.7';
+                this.textContent = '⏳ Exporting...';
+                
+                chrome.runtime.sendMessage({ type: 'exportLogs' }, (response) => {
+                    this.style.opacity = '1';
+                    this.textContent = '📄 Export Logs';
+                    
+                    if (response && response.success) {
+                        showNotification('Logs export initiated! Check your Downloads folder for the JSON file.', 'success');
+                    } else {
+                        showNotification('Failed to export logs. Please try again.', 'error');
+                    }
+                });
+            });
+            
+            // View log summary
+            document.getElementById('viewLogSummary').addEventListener('click', function() {
+                this.style.opacity = '0.7';
+                this.textContent = '⏳ Loading...';
+                
+                chrome.runtime.sendMessage({ type: 'getLogSummary' }, (response) => {
+                    this.style.opacity = '1';
+                    this.textContent = '📈 View Summary';
+                    
+                    const summaryDiv = document.getElementById('logSummary');
+                    const contentDiv = document.getElementById('summaryContent');
+                    
+                    if (response && response.success) {
+                        const data = response.data;
+                        contentDiv.innerHTML = `
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+                                <div><strong>Total Entries:</strong> ${data.totalEntries || 0}</div>
+                                <div><strong>Errors:</strong> ${data.errorCount || 0}</div>
+                                <div><strong>Warnings:</strong> ${data.warningCount || 0}</div>
+                                <div><strong>Custom Events:</strong> ${data.customEventCount || 0}</div>
+                            </div>
+                            ${data.sessionSummary ? `
+                            <div style="background: rgba(102, 126, 234, 0.1); padding: 12px; border-radius: 6px; border-left: 4px solid #667eea;">
+                                <div style="font-weight: 600; margin-bottom: 8px; color: #495057;">Current Session</div>
+                                <div><strong>Status:</strong> ${data.sessionSummary.status}</div>
+                                <div><strong>Steps Completed:</strong> ${data.sessionSummary.stepsCompleted || 0}</div>
+                                <div><strong>API Calls:</strong> ${data.sessionSummary.apiCalls || 0}</div>
+                                <div><strong>Errors:</strong> ${data.sessionSummary.errors || 0}</div>
+                                <div style="margin-top: 6px;"><strong>Instruction:</strong></div>
+                                <div style="font-style: italic; color: #6c757d; font-size: 11px;">${data.sessionSummary.instruction || 'No active instruction'}</div>
+                            </div>
+                            ` : `
+                            <div style="background: rgba(108, 117, 125, 0.1); padding: 12px; border-radius: 6px; text-align: center; color: #6c757d;">
+                                No active session
+                            </div>
+                            `}
+                        `;
+                        summaryDiv.classList.add('show');
+                        showNotification('Log summary loaded successfully.', 'info');
+                    } else {
+                        contentDiv.innerHTML = '<div style="color: #dc3545; text-align: center;">Failed to load summary. Please try again.</div>';
+                        summaryDiv.classList.add('show');
+                        showNotification('Failed to load log summary.', 'error');
+                    }
+                });
+            });
+            
+            // Clear logs
+            document.getElementById('clearLogs').addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear old logs? This will keep current session logs but remove historical data.')) {
+                    this.style.opacity = '0.7';
+                    this.textContent = '⏳ Clearing...';
+                    
+                    chrome.runtime.sendMessage({ type: 'clearLogs' }, (response) => {
+                        this.style.opacity = '1';
+                        this.textContent = '🗑️ Clear Old Logs';
+                        
+                        if (response && response.success) {
+                            // Hide summary if it's showing
+                            document.getElementById('logSummary').classList.remove('show');
+                            showNotification('Old logs cleared successfully. Current session preserved.', 'success');
+                        } else {
+                            showNotification('Failed to clear logs. Please try again.', 'error');
+                        }
+                    });
+                }
+            });
+
+            // Auto-refresh summary if visible when messages are received
+            chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+                if (request.type === 'statusUpdate' || request.type === 'AUTOMATION_COMPLETE') {
+                    const summaryDiv = document.getElementById('logSummary');
+                    if (summaryDiv.classList.contains('show')) {
+                        // Auto-refresh summary
+                        setTimeout(() => {
+                            document.getElementById('viewLogSummary').click();
+                        }, 1000);
+                    }
+                }
+            });
+        });
+
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notification => notification.remove());
+            
+            // Create new notification
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            // Show notification
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Hide and remove notification
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
+        }
+
+        // Enhanced visual feedback for logging section
+        document.addEventListener('DOMContentLoaded', function() {
+            const loggingSection = document.querySelector('.logging-section');
+            const buttons = loggingSection.querySelectorAll('.logging-btn');
+            
+            // Add pulse effect to logging section when automation starts
+            chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+                if (request.type === 'statusUpdate') {
+                    if (request.message.includes('Starting') || request.message.includes('Automation')) {
+                        loggingSection.style.animation = 'pulse 1s ease-in-out';
+                        setTimeout(() => {
+                            loggingSection.style.animation = '';
+                        }, 1000);
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>
